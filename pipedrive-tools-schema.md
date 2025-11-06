@@ -132,9 +132,9 @@ Busca uma pessoa no Pipedrive pelo telefone. Se não encontrar, cria uma nova co
       "default_type": "llm",
       
       "llm_config": {
-        "default_prompt": "Extrair telefone e converter para formato internacional (+5511987654321). Remover espaços, parênteses e hífens. Adicionar +55 se for número brasileiro sem código de país.",
+        "default_prompt": "Extrair telefone da conversa",
         "examples": ["+5511987654321", "+5521976543210"],
-        "critical_note": "Formato incorreto causará duplicação de pessoas no CRM"
+        "critical_note": "Campo usado para buscar pessoas existentes. Sistema normaliza automaticamente o formato."
       },
       
       "fixed_config": {
@@ -152,7 +152,6 @@ Busca uma pessoa no Pipedrive pelo telefone. Se não encontrar, cria uma nova co
       "normalization": {
         "enabled": true,
         "auto_apply": true,
-        "show_preview": true,
         "rules": [
           "remove_whitespace",
           "remove_special_chars",
@@ -162,8 +161,7 @@ Busca uma pessoa no Pipedrive pelo telefone. Se não encontrar, cria uma nova co
       
       "ui_indicators": {
         "badge": "🔴 Campo Crítico",
-        "help_text": "Este campo é usado para buscar pessoas existentes. Formato incorreto criará duplicatas!",
-        "show_normalized_preview": true
+        "help_text": "Campo usado para buscar pessoas existentes. Sistema normaliza formato automaticamente."
       }
     }
   ],
@@ -233,18 +231,11 @@ Busca uma pessoa no Pipedrive pelo telefone. Se não encontrar, cria uma nova co
 ║  │                                                      │ ║
 ║  │ Instrução para LLM:                                 │ ║
 ║  │ ┌──────────────────────────────────────────────┐   │ ║
-║  │ │ Extrair telefone e converter para formato   │   │ ║
-║  │ │ internacional (+5511987654321). Remover     │   │ ║
-║  │ │ espaços, parênteses e hífens.                │   │ ║
+║  │ │ Extrair telefone da conversa                 │   │ ║
 ║  │ └──────────────────────────────────────────────┘   │ ║
 ║  │                                                      │ ║
-║  │ 🔄 Normalização automática:                         │ ║
-║  │ Input: (11) 98765-4321                              │ ║
-║  │ ↓                                                    │ ║
-║  │ ✅ Enviará: +5511987654321                          │ ║
-║  │                                                      │ ║
-║  │ ⚠️ Este campo é usado para buscar pessoas          │ ║
-║  │    existentes. Formato incorreto criará duplicatas! │ ║
+║  │ ⚠️ Campo usado para buscar pessoas existentes.     │ ║
+║  │    Sistema normaliza formato automaticamente.       │ ║
 ║  └─────────────────────────────────────────────────────┘ ║
 ║                                                           ║
 ╠══════════════════════════════════════════════════════════╣
@@ -1214,7 +1205,7 @@ Cria uma atividade (meeting) para um deal específico no Pipedrive.
       "default_type": "llm",
       
       "llm_config": {
-        "default_prompt": "Calcular data no formato YYYY-MM-DD. Interpretar linguagem natural como 'amanhã', 'próxima segunda', 'daqui 3 dias'",
+        "default_prompt": "Calcular data baseado na conversa. Interpretar linguagem natural como 'amanhã', 'próxima segunda', 'daqui 3 dias'",
         "examples": ["2025-11-07", "2025-11-10"]
       },
       
@@ -1241,7 +1232,7 @@ Cria uma atividade (meeting) para um deal específico no Pipedrive.
       "default_type": "llm",
       
       "llm_config": {
-        "default_prompt": "Extrair horário no formato HH:mm. Se não mencionado, sugerir horário comercial (14:00)",
+        "default_prompt": "Extrair horário mencionado. Se não mencionado, sugerir horário comercial (14:00)",
         "examples": ["14:00", "09:30", "16:00"]
       },
       
@@ -1268,7 +1259,7 @@ Cria uma atividade (meeting) para um deal específico no Pipedrive.
       "default_type": "fixed",
       
       "llm_config": {
-        "default_prompt": "Extrair duração no formato HH:mm"
+        "default_prompt": "Extrair duração mencionada da conversa"
       },
       
       "fixed_config": {
@@ -1309,7 +1300,7 @@ Cria uma atividade (meeting) para um deal específico no Pipedrive.
       "default_type": "llm",
       
       "llm_config": {
-        "default_prompt": "Incluir a pessoa do deal e outros participantes mencionados. Formato: [{name, email}]",
+        "default_prompt": "Incluir a pessoa do deal e outros participantes mencionados na conversa",
         "array_handling": "merge_with_person"
       },
       
@@ -1376,7 +1367,7 @@ Cria uma atividade (meeting) para um deal específico no Pipedrive.
 ║  │                                                      │ ║
 ║  │ Instrução:                                          │ ║
 ║  │ ┌──────────────────────────────────────────────┐   │ ║
-║  │ │ Calcular data no formato YYYY-MM-DD.        │   │ ║
+║  │ │ Calcular data baseado na conversa.          │   │ ║
 ║  │ │ Interpretar: "amanhã", "próxima segunda",   │   │ ║
 ║  │ │ "daqui 3 dias"                               │   │ ║
 ║  │ └──────────────────────────────────────────────┘   │ ║
@@ -1391,7 +1382,7 @@ Cria uma atividade (meeting) para um deal específico no Pipedrive.
 ║  │                                                      │ ║
 ║  │ Instrução:                                          │ ║
 ║  │ ┌──────────────────────────────────────────────┐   │ ║
-║  │ │ Extrair horário no formato HH:mm. Se não    │   │ ║
+║  │ │ Extrair horário mencionado. Se não          │   │ ║
 ║  │ │ mencionado, sugerir 14:00                    │   │ ║
 ║  │ └──────────────────────────────────────────────┘   │ ║
 ║  └─────────────────────────────────────────────────────┘ ║
