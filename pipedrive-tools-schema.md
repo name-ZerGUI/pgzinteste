@@ -26,6 +26,94 @@ Nos exemplos visuais deste documento:
 
 ---
 
+## 📚 **Como Ler Este Documento**
+
+### **Estrutura de Cada Tool**
+
+```
+1. Categoria e Visibilidade (visível @ ou automática)
+2. Metadados da Tool (nome, descrição, dependências)
+3. Schema de Parâmetros
+   ├─ #parametro1 (JSON schema completo)
+   │  └─ Exemplo Visual (como aparece na UI)
+   ├─ #parametro2
+   └─ #parametro3
+```
+
+### **Cores e Símbolos**
+- 🔴 **Campo Crítico** - Requer normalização automática (chave de busca)
+- 🟡 **Obrigatório** - API exige este campo
+- ⚪ **Opcional** - Pode ser deixado vazio
+- 🔗 **Dependência** - Vem de outra tool
+- ℹ️ **Informação** - Contexto adicional
+
+---
+
+## 📖 **Glossário de Campos do Schema**
+
+Cada parâmetro usa estes campos:
+
+| Campo | Descrição | Exemplo |
+|-------|-----------|---------|
+| **Identificação** |||
+| `name` | Nome técnico do parâmetro | `pipeline_id` |
+| `display_name` | Nome mostrado na UI | `"Pipeline"` |
+| `help_text` | Texto auxiliar ao lado do nome | `"Selecione o(s) pipeline(s)"` |
+| `type` | Tipo de dado da API | `string`, `number`, `boolean`, `array` |
+| `format` | Formato específico | `email`, `phone`, `date`, `time` |
+| **Visibilidade** |||
+| `required` | Obrigatório pela API? | `true` / `false` |
+| `visible` | PODE aparecer na UI? | `true` = sim, `false` = nunca |
+| `show_by_default` | Aparece de cara? | `true` = visível, `false` = botão "Adicionar" |
+| `is_critical_field` | Precisa normalização? | `true` = chave de busca (phone) |
+| **Tipos de Preenchimento** |||
+| `allowed_input_types` | Tipos permitidos | `["fixed"]`, `["llm"]`, `["dependency"]` |
+| `default_type` | Tipo padrão | `"fixed"` |
+| **Tipo Fixo** |||
+| `fixed_config` | Configurações tipo Fixo | `{ multi_select, api_endpoint, ... }` |
+| `fixed_config.multi_select` | Permite múltiplos valores? | `true` / `false` |
+| `fixed_config.api_endpoint` | Como carregar valores | `{ method: "GET", url: "..." }` |
+| `fixed_config.enum_values` | Valores hardcoded | `[{value, label}, ...]` |
+| `fixed_config.instruction` | Config instrução multi-select | `{ required_when_multi: true }` |
+| **Tipo LLM** |||
+| `llm_config` | Configurações tipo LLM | `{ instruction_hint, placeholder, ... }` |
+| `llm_config.instruction_hint` | Label do campo instrução | `"Como a LLM deve..."` |
+| `llm_config.placeholder` | Exemplo no placeholder | `"Ex: Extrair nome..."` |
+| `llm_config.support_tool` | Tool que dá contexto | `"@getAllPipelines"` |
+| **Tipo Dependência** |||
+| `dependency_config` | Config tipo Dependência | `{ source_tool, output_type, ... }` |
+| `dependency_config.source_tool` | Tool que fornece valor | `"@getAllDeals"` |
+| `dependency_config.output_type` | Retorna único ou array? | `"single_value"` / `"array"` |
+| `dependency_config.show_fields_preview` | Mostrar campos disponíveis? | `true` / `false` |
+| `dependency_config.available_fields` | Lista de campos | `[{name, type, description}, ...]` |
+| **Relações** |||
+| `dependencies` | Tools que devem estar ativas | `[{tool, type, field}, ...]` |
+| `parameter_relationships` | Relação com outros params | `[{depends_on_parameter, ...}, ...]` |
+| **Validação** |||
+| `validation` | Regras de validação | `{ min, max, format, ... }` |
+| `validation.min` / `max` | Valor mínimo/máximo | `0`, `100` |
+| `validation.error_message` | Mensagem de erro | `"Campo obrigatório"` |
+| **Normalização** |||
+| `normalization` | Normalização automática | `{ enabled, rules }` |
+| `normalization.rules` | Regras aplicadas | `["remove_whitespace", ...]` |
+| **Null/Empty** |||
+| `nullable_behavior` | Como tratar vazios | `{ empty_converts_to, send_when_null }` |
+| `nullable_behavior.send_when_null` | Enviar quando null? | `true` / `false` |
+| **UI** |||
+| `ui_indicators` | Indicadores visuais | `{ badge, warning, hidden }` |
+| `ui_indicators.badge` | Badge a mostrar | `"🔴 Campo Crítico"` |
+| `ui_indicators.warning` | Aviso importante | `"Formato incorreto causa duplicatas"` |
+| `ui_indicators.hidden` | Oculto permanentemente? | `true` / `false` |
+
+**Legenda Rápida:**
+- 🔴 = Campo crítico (requer normalização)
+- ⚪ = Opcional
+- \* = Obrigatório
+- 🔗 = Dependência de outra tool
+- ℹ️ = Informação adicional
+
+---
+
 ## 📋 **Índice de Tools**
 
 ### **🎯 Tools Visíveis (Aparecem na lista @)**
@@ -208,12 +296,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": true,
@@ -306,12 +393,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": false,
@@ -387,12 +473,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": true,
@@ -452,12 +537,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve extrair/calcular o valor?",
@@ -509,12 +593,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "enum",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": false,
@@ -568,12 +651,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve estimar a probabilidade?",
@@ -667,12 +749,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependency_config": {
     "source_tool": "getAllExistingDealsFromPerson",
@@ -816,12 +897,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve gerar o novo título?",
@@ -847,12 +927,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": true,
@@ -914,12 +993,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": false,
@@ -953,12 +1031,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve extrair/calcular o valor?",
@@ -1007,12 +1084,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": false,
@@ -1063,12 +1139,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "enum",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "fixed_config": {
     "multi_select": true,
@@ -1114,12 +1189,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": false,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve extrair o motivo?",
@@ -1186,12 +1260,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "date",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve definir a data?",
@@ -1239,12 +1312,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como a LLM deve estimar a probabilidade?",
@@ -1333,12 +1405,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependency_config": {
     "source_tool": "getAllExistingDealsFromPerson",
@@ -1372,12 +1443,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "O que a nota deve conter?",
@@ -1466,12 +1536,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependency_config": {
     "source_tool": "getDealWithCompleteInfo",
@@ -1535,12 +1604,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como atualizar o conteúdo?",
@@ -1597,12 +1665,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como gerar o assunto da atividade?",
@@ -1622,12 +1689,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependency_config": {
     "source_tool": "getAllExistingDealsFromPerson",
@@ -1656,12 +1722,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "date",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como definir a data?",
@@ -1703,12 +1768,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "time",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como definir o horário?",
@@ -1752,12 +1816,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "time",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "fixed_config": {
     "input_type": "time",
@@ -1809,12 +1872,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "O que incluir na nota interna?",
@@ -1840,12 +1902,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "O que incluir na descrição pública?",
@@ -1872,12 +1933,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "item_type": "object",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Quem deve ser incluído como participante?",
@@ -1955,12 +2015,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como extrair o nome?",
@@ -1982,12 +2041,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "email",
   "required": false,
   "visible": true,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "llm_config": {
     "instruction_hint": "Como extrair o email?",
@@ -2019,21 +2077,27 @@ Razão: Regra 2A - Dependência única (valor singular)
 {
   "name": "phone",
   "display_name": "Telefone",
+  "help_text": "Número do cliente",
   "type": "string",
   "format": "phone",
+  
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["llm"],
   "default_type": "llm",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "llm_config": {
     "instruction_hint": "Como extrair o telefone?",
     "placeholder": "Ex: Extrair telefone da conversa",
     "default_instruction": "Extrair telefone do cliente. Use lead_phone das variáveis se disponível."
+  },
+  
+  "validation": {
+    "format": "e164_international",
+    "error_message": "Telefone é obrigatório e será normalizado automaticamente"
   },
   
   "normalization": {
@@ -2047,14 +2111,9 @@ Razão: Regra 2A - Dependência única (valor singular)
     ]
   },
   
-  "validation": {
-    "format": "e164_international",
-    "error_message": "Telefone é obrigatório e será normalizado automaticamente"
-  },
-  
   "ui_indicators": {
     "badge": "🔴 Campo Crítico",
-    "help_text": "Campo usado para buscar pessoas existentes. Sistema normaliza formato automaticamente para padrão internacional (+5511987654321)."
+    "warning": "Campo usado para buscar pessoas existentes. Sistema normaliza formato automaticamente para padrão internacional (+5511987654321)."
   }
 }
 ```
@@ -2136,12 +2195,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependency_config": {
     "source_tool": "getAllExistingDealsFromPerson",
@@ -2208,12 +2266,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": true,
   "visible": true,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependency_config": {
     "source_tool": "getAllExistingDealsFromPerson",
@@ -2282,12 +2339,11 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "boolean",
   "required": true,
   "visible": false,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "fixed_config": {
     "hardcoded_value": true,
@@ -2400,12 +2456,11 @@ Usuário vê apenas o indicador:
   "type": "number",
   "required": true,
   "visible": false,
+  "show_by_default": true,
+  "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
   "default_type": "dependency",
-  
-  "show_by_default": true,
-  "is_critical_field": true,
   
   "dependencies": [
     {
@@ -2433,12 +2488,11 @@ Usuário vê apenas o indicador:
   "type": "number",
   "required": false,
   "visible": false,
+  "show_by_default": false,
+  "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
   "default_type": "fixed",
-  
-  "show_by_default": false,
-  "is_critical_field": false,
   
   "ui_indicators": {
     "hidden": true,
@@ -2610,7 +2664,7 @@ status = 'lost' → lost_reason (condicional)
 
 ## 📝 Changelog
 
-### **v2.3** - 2025-11-10 - Reformulação de Criticidade → Visibilidade Padrão
+### **v2.3** - 2025-11-10 - Reformulação de Criticidade → Visibilidade Padrão + Padronização
 
 **Mudanças Principais:**
 - ❌ Removido campo `criticality` (critical/important/complementary) de todos os parâmetros
@@ -2618,6 +2672,13 @@ status = 'lost' → lost_reason (condicional)
 - ✅ Mantido campo `visible` (boolean) - controla se PODE aparecer
 - ✅ Novo campo `is_critical_field` (boolean) - apenas para normalização automática
 - ✅ Adicionado campo `help_text` nos parâmetros principais
+
+**Padronização de Schemas:**
+- ✅ **Ordem padronizada** de todos os campos seguindo o glossário
+- ✅ **Ordem correta:** `visible` → `show_by_default` → `is_critical_field` → `allowed_input_types` → `default_type`
+- ✅ **Correção:** `help_text` movido de `ui_indicators` para nível raiz
+- ✅ **Correção:** `ui_indicators.help_text` renomeado para `ui_indicators.warning`
+- ✅ **Aplicado em:** Todos os 10 tools e 50+ parâmetros
 
 **Parâmetros Atualizados:**
 
