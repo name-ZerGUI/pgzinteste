@@ -393,7 +393,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
-  "show_by_default": false,
+  "show_by_default": true,
   "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
@@ -537,7 +537,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
-  "show_by_default": true,
+  "show_by_default": false,
   "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
@@ -593,7 +593,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "enum",
   "required": false,
   "visible": true,
-  "show_by_default": true,
+  "show_by_default": false,
   "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
@@ -651,7 +651,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
-  "show_by_default": true,
+  "show_by_default": false,
   "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
@@ -897,7 +897,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "string",
   "required": false,
   "visible": true,
-  "show_by_default": true,
+  "show_by_default": false,
   "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
@@ -927,7 +927,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "type": "number",
   "required": false,
   "visible": true,
-  "show_by_default": true,
+  "show_by_default": false,
   "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
@@ -1816,7 +1816,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "time",
   "required": false,
   "visible": true,
-  "show_by_default": false,
+  "show_by_default": true,
   "is_critical_field": false,
   
   "allowed_input_types": ["fixed"],
@@ -2041,7 +2041,7 @@ Razão: Regra 2A - Dependência única (valor singular)
   "format": "email",
   "required": false,
   "visible": true,
-  "show_by_default": false,
+  "show_by_default": true,
   "is_critical_field": false,
   
   "allowed_input_types": ["llm"],
