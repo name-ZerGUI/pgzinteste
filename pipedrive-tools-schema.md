@@ -1,6 +1,6 @@
-# 🔧 Pipedrive Tools - Schema Completo v2.3
+# 🔧 Pipedrive Tools - Schema Completo v2.3.1
 
-Schemas de todas as tools do Pipedrive seguindo o **Framework de Regras para Parâmetros** (v3.7).
+Schemas de todas as tools do Pipedrive seguindo o **Framework de Regras para Parâmetros** (v3.7.1).
 
 **Data:** 2025-11-10  
 **Integração:** Pipedrive  
@@ -12,17 +12,23 @@ Schemas de todas as tools do Pipedrive seguindo o **Framework de Regras para Par
 
 Nos exemplos visuais deste documento:
 
-✅ **Quando há APENAS 1 tipo permitido** (`allowed_input_types` com 1 elemento):
+✅ **TODOS os parâmetros têm APENAS 1 tipo permitido** (`allowed_input_types` com 1 elemento):
 - **NÃO** aparece seletor de tipo na UI
 - Campos são mostrados **diretamente**
 - Exemplo: `allowed_input_types: ["llm"]` → mostra campo de instrução diretamente
+- Exemplo: `allowed_input_types: ["fixed"]` → mostra lista de valores diretamente
 
-❌ **Quando há MÚLTIPLOS tipos** (`allowed_input_types` com 2+ elementos):
-- **APARECE** seletor de tipo `[Fixo | LLM Prompt]`
-- Usuário escolhe o tipo antes de configurar
-- Exemplo: `allowed_input_types: ["llm", "fixed"]` → mostra seletor
+⚠️ **Múltiplos tipos foram REMOVIDOS em v3.5** (Framework):
+- Decisão: Escolher UM tipo dominante baseado no caso de uso real (90%+ dos casos)
+- Todos os parâmetros deste schema seguem essa regra
+- Se você vir `["llm", "fixed"]` em algum lugar, é um erro!
 
-**Referência:** Regra 3 do Framework - "UI deve mostrar campos diretamente quando há apenas 1 tipo"
+📖 **Por que apenas 1 tipo?**
+- Simplifica UX (menos decisões para o usuário)
+- Reflete casos de uso reais (raramente oscila 50/50)
+- Melhor performance (sem overhead de seletor)
+
+**Referência:** Framework v3.5 - Regra 3E "Quando NÃO Permitir Múltiplos Tipos"
 
 ---
 
@@ -1548,6 +1554,7 @@ Razão: Regra 2A - Dependência única (valor singular)
     "output_type": "array",
     "selection_required": true,
     "show_fields_preview": true,
+    "note": "Notação notes[].id indica que o campo id vem de um array de objetos notes retornado pela tool",
     "available_fields": [
       {
         "name": "id",
@@ -2310,21 +2317,11 @@ Razão: Regra 2A - Dependência única (valor singular)
 {
   "name": "getAllExistingPipelines",
   "display_name": "Buscar todos os pipelines existentes",
-  "description": "Busca os pipelines existentes no Pipedrive com seus respectivos ids e stages. Chamada automaticamente quando parâmetro tipo LLM precisa de contexto de pipelines.",
+  "description": "Busca os pipelines existentes no Pipedrive com seus respectivos ids e stages. Tool de suporte para consultas genéricas (não usada atualmente no Pipedrive pois pipeline_id é tipo fixed).",
   "integration": "pipedrive",
   "dependencies": [],
-  "provides_context_for": [
-    {
-      "tool": "createDeal",
-      "parameter": "pipeline_id",
-      "when": "type=llm"
-    },
-    {
-      "tool": "updateDeal",
-      "parameter": "pipeline_id",
-      "when": "type=llm"
-    }
-  ]
+  "provides_context_for": [],
+  "note": "Exemplo genérico de tool de suporte. No Pipedrive, pipeline_id usa tipo fixed (carrega via API no frontend). Esta tool seria útil para parâmetros tipo LLM que precisem de contexto dinâmico de pipelines."
 }
 ```
 
@@ -2362,25 +2359,26 @@ Razão: Regra 2A - Dependência única (valor singular)
 ```
 ❌ NÃO APARECE NA UI DO CHECKPOINT
 
-Esta tool é invocada automaticamente em runtime.
+Esta tool é exemplo genérico de tool de suporte LLM.
 
-Exemplo: Quando pipeline_id tipo=LLM é configurado,
-o sistema chama getAllExistingPipelines para fornecer
-contexto à LLM.
+No Pipedrive: pipeline_id é tipo FIXED (carrega lista
+via API no frontend), então esta tool não é invocada.
 
-Usuário vê apenas o indicador:
+Seria usada se houvesse parâmetro tipo LLM que precisasse
+de contexto dinâmico de pipelines.
+
+Exemplo hipotético (template_id tipo LLM):
 
 ┌────────────────────────────────────────┐
-│ #pipeline_id                           │
+│ #template_id                           │
 │                                        │
 │ ℹ️ LLM terá acesso automático aos     │
-│    pipelines via                       │
-│    @getAllExistingPipelines            │
+│    templates via                       │
+│    @searchEmailTemplates               │
 │                                        │
 │ Instrução para LLM:                    │
 │ ┌────────────────────────────────────┐ │
-│ │ [instrução configurada pelo        │ │
-│ │  usuário]                          │ │
+│ │ Usar template com tag "boas-vindas"│ │
 │ └────────────────────────────────────┘ │
 └────────────────────────────────────────┘
 ```
@@ -2456,7 +2454,7 @@ Usuário vê apenas o indicador:
   "type": "number",
   "required": true,
   "visible": false,
-  "show_by_default": true,
+  "show_by_default": false,
   "is_critical_field": true,
   
   "allowed_input_types": ["dependency"],
@@ -2472,7 +2470,8 @@ Usuário vê apenas o indicador:
   ],
   
   "ui_indicators": {
-    "hidden": true
+    "hidden": true,
+    "reason": "Resolvido automaticamente - não aparece na UI"
   }
 }
 ```
@@ -2654,15 +2653,31 @@ status = 'lost' → lost_reason (condicional)
 
 ---
 
-**Versão:** 2.3  
+**Versão:** 2.3.1  
 **Data:** 2025-11-10  
-**Framework:** v3.7  
+**Framework:** v3.7.1  
 **Integração:** Pipedrive  
 **Status:** Completo e pronto para implementação
 
 ---
 
 ## 📝 Changelog
+
+### **v2.3.1** - 2025-11-10 - Correções de Inconsistências
+
+**Mudanças:**
+- ✅ Corrigido `person_id` em `getAllExistingDealsFromPerson`: `show_by_default: true` → `false`
+- ✅ Adicionada nota explicativa em `ui_indicators.reason` para parâmetros ocultos
+- ✅ Atualizado `getAllExistingPipelines`:
+  - Removida referência incorreta a `pipeline_id` tipo LLM
+  - Adicionada nota que esta tool não é usada no Pipedrive (pipeline_id é tipo fixed)
+  - Exemplo visual atualizado com caso hipotético (`template_id`)
+- ✅ Documentada notação `notes[].id` em `updateNote.note_id`
+- ✅ Nota sobre múltiplos tipos atualizada (removidos em v3.5)
+
+**Impacto:** Schema agora está 100% consistente com Framework v3.7.1
+
+---
 
 ### **v2.3** - 2025-11-10 - Reformulação de Criticidade → Visibilidade Padrão + Padronização
 
