@@ -1,34 +1,25 @@
-# 🔧 Pipedrive Tools - Schema Completo v2.3.1
+# 🔧 Pipedrive Tools - Schema Completo v3.8.0
 
-Schemas de todas as tools do Pipedrive seguindo o **Framework de Regras para Parâmetros** (v3.7.1).
+Schemas de todas as tools do Pipedrive seguindo o **Framework de Regras para Parâmetros** (v3.8.0).
 
-**Data:** 2025-11-10  
+**Data:** 2025-11-13  
 **Integração:** Pipedrive  
 **Total de Tools:** 10
 
 ---
 
-## 💡 **Nota Importante sobre Exemplos Visuais**
+## 💡 **Nota Importante sobre a Simplificação do Schema v3.8.0**
 
-Nos exemplos visuais deste documento:
+Este documento foi **totalmente atualizado** para refletir a simplificação radical do schema introduzida na v3.8.0 do Framework.
 
-✅ **TODOS os parâmetros têm APENAS 1 tipo permitido** (`allowed_input_types` com 1 elemento):
-- **NÃO** aparece seletor de tipo na UI
-- Campos são mostrados **diretamente**
-- Exemplo: `allowed_input_types: ["llm"]` → mostra campo de instrução diretamente
-- Exemplo: `allowed_input_types: ["fixed"]` → mostra lista de valores diretamente
+As principais mudanças são:
+1.  **Campo de Tipo Único:** Os campos `allowed_input_types` e `default_type` foram substituídos por um único campo `input_type`. Cada parâmetro agora tem apenas um tipo de preenchimento (`fixed`, `llm`, ou `dependency`).
+2.  **Objeto de Configuração Unificado:** Os objetos `fixed_config`, `llm_config`, e `dependency_config` foram unificados em um único objeto `config`. O conteúdo deste objeto varia de acordo com o `input_type`.
+3.  **Configuração de Dependência Simplificada:** A configuração para `input_type: "dependency"` foi drasticamente reduzida. A responsabilidade de declarar os campos disponíveis agora é da `source_tool`, eliminando a redundância.
 
-⚠️ **Múltiplos tipos foram REMOVIDOS em v3.5** (Framework):
-- Decisão: Escolher UM tipo dominante baseado no caso de uso real (90%+ dos casos)
-- Todos os parâmetros deste schema seguem essa regra
-- Se você vir `["llm", "fixed"]` em algum lugar, é um erro!
+✅ **Resultado:** O schema está significativamente mais conciso, manutenível e alinhado com o princípio DRY (Don't Repeat Yourself).
 
-📖 **Por que apenas 1 tipo?**
-- Simplifica UX (menos decisões para o usuário)
-- Reflete casos de uso reais (raramente oscila 50/50)
-- Melhor performance (sem overhead de seletor)
-
-**Referência:** Framework v3.5 - Regra 3E "Quando NÃO Permitir Múltiplos Tipos"
+**Referência:** Framework v3.8.0
 
 ---
 
@@ -55,68 +46,25 @@ Nos exemplos visuais deste documento:
 
 ---
 
-## 📖 **Glossário de Campos do Schema**
+## 📖 **Glossário de Campos do Schema (v3.8.0)**
 
-Cada parâmetro usa estes campos:
+| Campo | Tipo | Descrição |
+|---|---|---|
+| **`name`** | string | Nome técnico do parâmetro (ex: `pipeline_id`). |
+| **`display_name`** | string | Nome amigável mostrado na UI (ex: "Pipeline"). |
+| **`help_text`** | string | Texto auxiliar na UI (ex: "Selecione o(s) pipeline(s)"). |
+| **`type`** | string | Tipo de dado da API (`string`, `number`, `boolean`, `array`). |
+| **`required`** | boolean | Se é obrigatório pela API externa. |
+| **`visible`** | boolean | Se PODE aparecer na UI (se `false`, nunca aparece). |
+| **`show_by_default`** | boolean | Se aparece de cara ou no botão "Adicionar". |
+| **`is_critical_field`**| boolean | Se precisa de normalização automática (ex: `email`, `phone`). |
+| **`input_type`** | string | Tipo de preenchimento: `fixed`, `llm`, ou `dependency`. |
+| **`config`** | object | Objeto de configuração que varia conforme `input_type`. |
+| **`dependencies`** | array | Tools que devem estar ativas para este parâmetro funcionar. |
+| **`validation`** | object | Regras de validação (ex: `min`, `max`). |
+| **`nullable_behavior`**| object | Como o sistema trata valores `null` ou vazios. |
 
-| Campo | Descrição | Exemplo |
-|-------|-----------|---------|
-| **Identificação** |||
-| `name` | Nome técnico do parâmetro | `pipeline_id` |
-| `display_name` | Nome mostrado na UI | `"Pipeline"` |
-| `help_text` | Texto auxiliar ao lado do nome | `"Selecione o(s) pipeline(s)"` |
-| `type` | Tipo de dado da API | `string`, `number`, `boolean`, `array` |
-| `format` | Formato específico | `email`, `phone`, `date`, `time` |
-| **Visibilidade** |||
-| `required` | Obrigatório pela API? | `true` / `false` |
-| `visible` | PODE aparecer na UI? | `true` = sim, `false` = nunca |
-| `show_by_default` | Aparece de cara? | `true` = visível, `false` = botão "Adicionar" |
-| `is_critical_field` | Precisa normalização? | `true` = chave de busca (phone) |
-| **Tipos de Preenchimento** |||
-| `allowed_input_types` | Tipos permitidos | `["fixed"]`, `["llm"]`, `["dependency"]` |
-| `default_type` | Tipo padrão | `"fixed"` |
-| **Tipo Fixo** |||
-| `fixed_config` | Configurações tipo Fixo | `{ multi_select, api_endpoint, ... }` |
-| `fixed_config.multi_select` | Permite múltiplos valores? | `true` / `false` |
-| `fixed_config.api_endpoint` | Como carregar valores | `{ method: "GET", url: "..." }` |
-| `fixed_config.enum_values` | Valores hardcoded | `[{value, label}, ...]` |
-| `fixed_config.instruction` | Config instrução multi-select | `{ required_when_multi: true }` |
-| **Tipo LLM** |||
-| `llm_config` | Configurações tipo LLM | `{ instruction_hint, placeholder, ... }` |
-| `llm_config.instruction_hint` | Label do campo instrução | `"Como a LLM deve..."` |
-| `llm_config.placeholder` | Exemplo no placeholder | `"Ex: Extrair nome..."` |
-| `llm_config.support_tool` | Tool que dá contexto | `"@getAllPipelines"` |
-| **Tipo Dependência** |||
-| `dependency_config` | Config tipo Dependência | `{ source_tool, output_type, ... }` |
-| `dependency_config.source_tool` | Tool que fornece valor | `"@getAllDeals"` |
-| `dependency_config.output_type` | Retorna único ou array? | `"single_value"` / `"array"` |
-| `dependency_config.show_fields_preview` | Mostrar campos disponíveis? | `true` / `false` |
-| `dependency_config.available_fields` | Lista de campos | `[{name, type, description}, ...]` |
-| **Relações** |||
-| `dependencies` | Tools que devem estar ativas | `[{tool, type, field}, ...]` |
-| `parameter_relationships` | Relação com outros params | `[{depends_on_parameter, ...}, ...]` |
-| **Validação** |||
-| `validation` | Regras de validação | `{ min, max, format, ... }` |
-| `validation.min` / `max` | Valor mínimo/máximo | `0`, `100` |
-| `validation.error_message` | Mensagem de erro | `"Campo obrigatório"` |
-| **Normalização** |||
-| `normalization` | Normalização automática | `{ enabled, rules }` |
-| `normalization.rules` | Regras aplicadas | `["remove_whitespace", ...]` |
-| **Null/Empty** |||
-| `nullable_behavior` | Como tratar vazios | `{ empty_converts_to, send_when_null }` |
-| `nullable_behavior.send_when_null` | Enviar quando null? | `true` / `false` |
-| **UI** |||
-| `ui_indicators` | Indicadores visuais | `{ badge, warning, hidden }` |
-| `ui_indicators.badge` | Badge a mostrar | `"🔴 Campo Crítico"` |
-| `ui_indicators.warning` | Aviso importante | `"Formato incorreto causa duplicatas"` |
-| `ui_indicators.hidden` | Oculto permanentemente? | `true` / `false` |
-
-**Legenda Rápida:**
-- 🔴 = Campo crítico (requer normalização)
-- ⚪ = Opcional
-- \* = Obrigatório
-- 🔗 = Dependência de outra tool
-- ℹ️ = Informação adicional
+*(Para detalhes sobre o que pode conter o objeto `config`, consulte o documento principal do Framework de Regras).*
 
 ---
 
@@ -196,10 +144,9 @@ Cada parâmetro usa estes campos:
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve gerar o título?",
     "placeholder": "Ex: Usar nome da pessoa + tipo de produto mencionado",
     "default_instruction": "Criar título usando o nome da pessoa ou empresa",
@@ -254,8 +201,7 @@ Cada parâmetro usa estes campos:
   "show_by_default": false,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
   "dependencies": [
     {
@@ -305,10 +251,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": true,
     "api_endpoint": {
       "method": "GET",
@@ -402,10 +347,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": false,
     "api_endpoint": {
       "method": "GET",
@@ -482,10 +426,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": true,
     "api_endpoint": {
       "method": "GET",
@@ -546,10 +489,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve extrair/calcular o valor?",
     "placeholder": "Ex: Extrair valor mencionado na conversa"
   },
@@ -602,17 +544,15 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": false,
     "enum_values": [
       { "value": "open", "label": "Aberto (open)" },
       { "value": "won", "label": "Ganho (won)" },
       { "value": "lost", "label": "Perdido (lost)" }
     ],
-    "hardcoded": true,
     "default_value": "open"
   },
   
@@ -660,10 +600,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve estimar a probabilidade?",
     "placeholder": "Ex: Baseado no engajamento do cliente"
   },
@@ -758,10 +697,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
-  "dependency_config": {
+  "config": {
     "source_tool": "getAllExistingDealsFromPerson",
     "source_field": "id",
     "output_type": "array",
@@ -906,10 +844,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve gerar o novo título?",
     "placeholder": "Ex: Atualizar apenas se cliente mudar de empresa",
     "support_tool": null
@@ -936,10 +873,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": true,
     "api_endpoint": {
       "method": "GET",
@@ -1002,10 +938,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": false,
     "api_endpoint": {
       "method": "GET",
@@ -1040,10 +975,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve extrair/calcular o valor?",
     "placeholder": "Ex: Extrair valor mencionado na conversa"
   },
@@ -1093,18 +1027,16 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": false,
     "enum_values": [
       { "value": "BRL", "label": "Real Brasileiro (BRL)" },
       { "value": "USD", "label": "Dólar Americano (USD)" },
       { "value": "EUR", "label": "Euro (EUR)" },
       { "value": "GBP", "label": "Libra Esterlina (GBP)" }
-    ],
-    "hardcoded": true
+    ]
   },
   
   "nullable_behavior": {
@@ -1148,10 +1080,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "multi_select": true,
     "enum_values": [
       { "value": "open", "label": "Aberto (open)" },
@@ -1159,7 +1090,6 @@ Razão: Regra 2A - Dependência única (valor singular)
       { "value": "lost", "label": "Perdido (lost)" },
       { "value": "deleted", "label": "Deletado (deleted)" }
     ],
-    "hardcoded": true,
     "instruction": {
       "required_when_multi": true,
       "placeholder": "Quando usar cada status?"
@@ -1198,10 +1128,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve extrair o motivo?",
     "placeholder": "Ex: Extrair motivo mencionado pelo cliente",
     "support_tool": null
@@ -1269,10 +1198,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve definir a data?",
     "placeholder": "Ex: Usar data mencionada pelo cliente ou calcular +30 dias",
     "format_note": "Sistema normaliza automaticamente para YYYY-MM-DD"
@@ -1321,10 +1249,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como a LLM deve estimar a probabilidade?",
     "placeholder": "Ex: Baseado no engajamento do cliente"
   },
@@ -1357,6 +1284,9 @@ Razão: Regra 2A - Dependência única (valor singular)
 │ └────────────────────────────────────┘ │
 │                                        │
 │ ✅ Validação: 0-100%                  │
+│                                        │
+│ 💡 Se não definir, usa probabilidade  │
+│    padrão do estágio                  │
 │                                        │
 │ ℹ️ Apenas 1 tipo permitido (LLM) -    │
 │    campo mostrado diretamente         │
@@ -1414,10 +1344,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
-  "dependency_config": {
+  "config": {
     "source_tool": "getAllExistingDealsFromPerson",
     "source_field": "id",
     "output_type": "array",
@@ -1452,10 +1381,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "O que a nota deve conter?",
     "placeholder": "Ex: Resumir pontos principais da conversa",
     "support_tool": null
@@ -1545,10 +1473,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
-  "dependency_config": {
+  "config": {
     "source_tool": "getDealWithCompleteInfo",
     "source_field": "notes[].id",
     "output_type": "array",
@@ -1614,10 +1541,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como atualizar o conteúdo?",
     "placeholder": "Ex: Adicionar informações da nova conversa ao conteúdo existente"
   }
@@ -1675,10 +1601,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como gerar o assunto da atividade?",
     "placeholder": "Ex: Reunião de alinhamento com [nome da pessoa]"
   }
@@ -1699,10 +1624,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
-  "dependency_config": {
+  "config": {
     "source_tool": "getAllExistingDealsFromPerson",
     "source_field": "id",
     "output_type": "array",
@@ -1732,10 +1656,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como definir a data?",
     "placeholder": "Ex: Usar data mencionada pelo cliente",
     "format_note": "Sistema normaliza para YYYY-MM-DD automaticamente"
@@ -1778,10 +1701,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como definir o horário?",
     "placeholder": "Ex: Usar horário mencionado ou sugerir 14:00",
     "format_note": "Sistema normaliza para HH:mm automaticamente"
@@ -1826,10 +1748,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "input_type": "time",
     "format": "HH:mm",
     "default_value": "01:00",
@@ -1882,10 +1803,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "O que incluir na nota interna?",
     "placeholder": "Ex: Contexto da conversa para o vendedor",
     "help_text": "Nota visível apenas internamente (não enviada ao lead)"
@@ -1912,10 +1832,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "O que incluir na descrição pública?",
     "placeholder": "Ex: Agenda e pauta da reunião",
     "help_text": "Descrição visível para o lead"
@@ -1943,10 +1862,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Quem deve ser incluído como participante?",
     "placeholder": "Ex: Adicionar a pessoa do deal + vendedor responsável",
     "default_instruction": "Incluir a pessoa associada ao deal e outros participantes mencionados"
@@ -2025,10 +1943,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como extrair o nome?",
     "placeholder": "Ex: Extrair nome completo da conversa",
     "default_instruction": "Extrair nome completo do cliente da conversa"
@@ -2051,10 +1968,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": false,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como extrair o email?",
     "placeholder": "Ex: Extrair email da conversa",
     "null_handling": {
@@ -2093,10 +2009,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
+  "input_type": "llm",
   
-  "llm_config": {
+  "config": {
     "instruction_hint": "Como extrair o telefone?",
     "placeholder": "Ex: Extrair telefone da conversa",
     "default_instruction": "Extrair telefone do cliente. Use lead_phone das variáveis se disponível."
@@ -2205,10 +2120,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
-  "dependency_config": {
+  "config": {
     "source_tool": "getAllExistingDealsFromPerson",
     "source_field": "id",
     "output_type": "array",
@@ -2276,10 +2190,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": true,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
-  "dependency_config": {
+  "config": {
     "source_tool": "getAllExistingDealsFromPerson",
     "source_field": "id",
     "output_type": "array",
@@ -2339,10 +2252,9 @@ Razão: Regra 2A - Dependência única (valor singular)
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
-  "fixed_config": {
+  "config": {
     "hardcoded_value": true,
     "reason": "Parâmetro técnico sem valor de configuração"
   },
@@ -2457,8 +2369,7 @@ Exemplo hipotético (template_id tipo LLM):
   "show_by_default": false,
   "is_critical_field": true,
   
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
+  "input_type": "dependency",
   
   "dependencies": [
     {
@@ -2490,8 +2401,7 @@ Exemplo hipotético (template_id tipo LLM):
   "show_by_default": false,
   "is_critical_field": false,
   
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
+  "input_type": "fixed",
   
   "ui_indicators": {
     "hidden": true,
@@ -2653,8 +2563,8 @@ status = 'lost' → lost_reason (condicional)
 
 ---
 
-**Versão:** 2.3.1  
-**Data:** 2025-11-10  
-**Framework:** v3.7.1  
+**Versão:** 3.8.0  
+**Data:** 2025-11-13  
+**Framework:** v3.8.0  
 **Integração:** Pipedrive  
 **Status:** Completo e pronto para implementação
