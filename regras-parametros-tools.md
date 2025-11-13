@@ -826,6 +826,35 @@ Para aplicar essas regras a **qualquer integração**, cada parâmetro deve ter 
 
 *(Para detalhes completos sobre o objeto `config`, relacionamentos, validações e outros campos do schema, consulte a implementação de referência).*
 
+### **🔬 Detalhes do Objeto `config`**
+
+O conteúdo do objeto `config` muda de acordo com o `input_type` selecionado.
+
+#### **Se `input_type: "fixed"`:**
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| **`multi_select`** | boolean | Permite a seleção de múltiplos valores. Se `true`, a LLM precisará de uma instrução para escolher entre os selecionados. |
+| **`api_endpoint`** | object | Define como carregar dinamicamente os valores de uma API. Contém `url`, `method`, `response_mapping`, etc. |
+| **`enum_values`** | array | Uma lista de valores `[{value, label}]` fixos (hardcoded) para o parâmetro. |
+| **`instruction`** | object | Configuração para o campo de instrução que aparece quando `multi_select` é `true`. Ex: `{ "required_when_multi": true, "placeholder": "..." }`. |
+
+#### **Se `input_type: "llm"`:**
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| **`instruction_hint`** | string | O `label` do campo de instrução na UI. Ex: "Como a LLM deve gerar o título?". |
+| **`placeholder`** | string | Texto de exemplo dentro do campo de instrução. Ex: "Usar nome da pessoa + produto". |
+| **`support_tool`** | string | O nome de uma tool de consulta (ex: `@searchTemplates`) que o sistema invocará para fornecer contexto à LLM. |
+
+#### **Se `input_type: "dependency"`:**
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| **`source_tool`** | string | Nome da tool da qual este parâmetro depende (ex: `@getAllDeals`). |
+| **`output_type`** | string | Define se a `source_tool` retorna `"single_value"` ou `"array"`. Se for `array`, o usuário precisará fornecer um critério de seleção. |
+| **`source_field`** | string | (Opcional) O campo específico a ser extraído do output da `source_tool` (ex: `id`). |
+
 ---
 
 # ⚙️ **REGRAS DE SCHEMA/SISTEMA**
