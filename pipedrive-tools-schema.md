@@ -1,2533 +1,540 @@
-# 🔧 Pipedrive Tools - Schema Completo v2.3.1
+# 🎯 Framework de Regras para Parâmetros de Tools
 
-Schemas de todas as tools do Pipedrive seguindo o **Framework de Regras para Parâmetros** (v3.7.1).
+Sistema universal de regras para configuração de parâmetros de tools em qualquer integração.
 
-**Data:** 2025-11-10  
-**Integração:** Pipedrive  
-**Total de Tools:** 10
+**Versão:** 3.8.0  
+**Data:** 2025-11-13  
+**Status:** Pronto para implementação
 
----
 
-## 💡 **Nota Importante sobre Exemplos Visuais**
+## 📚 **Estrutura do Documento**
 
-Nos exemplos visuais deste documento:
+Este framework contém dois tipos de regras:
 
-✅ **TODOS os parâmetros têm APENAS 1 tipo permitido** (`allowed_input_types` com 1 elemento):
-- **NÃO** aparece seletor de tipo na UI
-- Campos são mostrados **diretamente**
-- Exemplo: `allowed_input_types: ["llm"]` → mostra campo de instrução diretamente
-- Exemplo: `allowed_input_types: ["fixed"]` → mostra lista de valores diretamente
+### **🎨 Regras de UX/Configuração (1-9)**
+**Para quem:** Usuário final configurando tools no checkpoint  
+**Quando:** Durante setup/configuração da tool  
+**Impacto:** Interface, interação, decisões do usuário
 
-⚠️ **Múltiplos tipos foram REMOVIDOS em v3.5** (Framework):
-- Decisão: Escolher UM tipo dominante baseado no caso de uso real (90%+ dos casos)
-- Todos os parâmetros deste schema seguem essa regra
-- Se você vir `["llm", "fixed"]` em algum lugar, é um erro!
+### **⚙️ Regras de Schema/Sistema (10-12)**
+**Para quem:** Desenvolvedor definindo schema da tool  
+**Quando:** Durante implementação/mapeamento da integração  
+**Impacto:** Validação, processamento, comportamento interno
 
-📖 **Por que apenas 1 tipo?**
-- Simplifica UX (menos decisões para o usuário)
-- Reflete casos de uso reais (raramente oscila 50/50)
-- Melhor performance (sem overhead de seletor)
-
-**Referência:** Framework v3.5 - Regra 3E "Quando NÃO Permitir Múltiplos Tipos"
+> 💡 **O usuário não vê as Regras 10-12 diretamente**. Elas são aplicadas automaticamente pelo sistema baseado no schema da tool.
 
 ---
 
-## 📚 **Como Ler Este Documento**
-
-### **Estrutura de Cada Tool**
+## ⚡ **Fluxo de Runtime (Execução)**
 
 ```
-1. Categoria e Visibilidade (visível @ ou automática)
-2. Metadados da Tool (nome, descrição, dependências)
-3. Schema de Parâmetros
-   ├─ #parametro1 (JSON schema completo)
-   │  └─ Exemplo Visual (como aparece na UI)
-   ├─ #parametro2
-   └─ #parametro3
-```
-
-### **Cores e Símbolos**
-- 🔴 **Campo Crítico** - Requer normalização automática (chave de busca)
-- 🟡 **Obrigatório** - API exige este campo
-- ⚪ **Opcional** - Pode ser deixado vazio
-- 🔗 **Dependência** - Vem de outra tool
-- ℹ️ **Informação** - Contexto adicional
-
----
-
-## 📖 **Glossário de Campos do Schema**
-
-Cada parâmetro usa estes campos:
-
-| Campo | Descrição | Exemplo |
-|-------|-----------|---------|
-| **Identificação** |||
-| `name` | Nome técnico do parâmetro | `pipeline_id` |
-| `display_name` | Nome mostrado na UI | `"Pipeline"` |
-| `help_text` | Texto auxiliar ao lado do nome | `"Selecione o(s) pipeline(s)"` |
-| `type` | Tipo de dado da API | `string`, `number`, `boolean`, `array` |
-| `format` | Formato específico | `email`, `phone`, `date`, `time` |
-| **Visibilidade** |||
-| `required` | Obrigatório pela API? | `true` / `false` |
-| `visible` | PODE aparecer na UI? | `true` = sim, `false` = nunca |
-| `show_by_default` | Aparece de cara? | `true` = visível, `false` = botão "Adicionar" |
-| `is_critical_field` | Precisa normalização? | `true` = chave de busca (phone) |
-| **Tipos de Preenchimento** |||
-| `allowed_input_types` | Tipos permitidos | `["fixed"]`, `["llm"]`, `["dependency"]` |
-| `default_type` | Tipo padrão | `"fixed"` |
-| **Tipo Fixo** |||
-| `fixed_config` | Configurações tipo Fixo | `{ multi_select, api_endpoint, ... }` |
-| `fixed_config.multi_select` | Permite múltiplos valores? | `true` / `false` |
-| `fixed_config.api_endpoint` | Como carregar valores | `{ method: "GET", url: "..." }` |
-| `fixed_config.enum_values` | Valores hardcoded | `[{value, label}, ...]` |
-| `fixed_config.instruction` | Config instrução multi-select | `{ required_when_multi: true }` |
-| **Tipo LLM** |||
-| `llm_config` | Configurações tipo LLM | `{ instruction_hint, placeholder, ... }` |
-| `llm_config.instruction_hint` | Label do campo instrução | `"Como a LLM deve..."` |
-| `llm_config.placeholder` | Exemplo no placeholder | `"Ex: Extrair nome..."` |
-| `llm_config.support_tool` | Tool que dá contexto | `"@getAllPipelines"` |
-| **Tipo Dependência** |||
-| `dependency_config` | Config tipo Dependência | `{ source_tool, output_type, ... }` |
-| `dependency_config.source_tool` | Tool que fornece valor | `"@getAllDeals"` |
-| `dependency_config.output_type` | Retorna único ou array? | `"single_value"` / `"array"` |
-| `dependency_config.show_fields_preview` | Mostrar campos disponíveis? | `true` / `false` |
-| `dependency_config.available_fields` | Lista de campos | `[{name, type, description}, ...]` |
-| **Relações** |||
-| `dependencies` | Tools que devem estar ativas | `[{tool, type, field}, ...]` |
-| `parameter_relationships` | Relação com outros params | `[{depends_on_parameter, ...}, ...]` |
-| **Validação** |||
-| `validation` | Regras de validação | `{ min, max, format, ... }` |
-| `validation.min` / `max` | Valor mínimo/máximo | `0`, `100` |
-| `validation.error_message` | Mensagem de erro | `"Campo obrigatório"` |
-| **Normalização** |||
-| `normalization` | Normalização automática | `{ enabled, rules }` |
-| `normalization.rules` | Regras aplicadas | `["remove_whitespace", ...]` |
-| **Null/Empty** |||
-| `nullable_behavior` | Como tratar vazios | `{ empty_converts_to, send_when_null }` |
-| `nullable_behavior.send_when_null` | Enviar quando null? | `true` / `false` |
-| **UI** |||
-| `ui_indicators` | Indicadores visuais | `{ badge, warning, hidden }` |
-| `ui_indicators.badge` | Badge a mostrar | `"🔴 Campo Crítico"` |
-| `ui_indicators.warning` | Aviso importante | `"Formato incorreto causa duplicatas"` |
-| `ui_indicators.hidden` | Oculto permanentemente? | `true` / `false` |
-
-**Legenda Rápida:**
-- 🔴 = Campo crítico (requer normalização)
-- ⚪ = Opcional
-- \* = Obrigatório
-- 🔗 = Dependência de outra tool
-- ℹ️ = Informação adicional
-
----
-
-## 📋 **Índice de Tools**
-
-### **🎯 Tools Visíveis (Aparecem na lista @)**
-
-**Categoria: Ação**
-1. [createDeal](#1-createdeal-) - Criar novo deal
-2. [updateDeal](#2-updatedeal-) - Atualizar deal existente
-3. [createNote](#3-createnote-) - Criar nova nota
-4. [updateNote](#4-updatenote-) - Atualizar nota existente
-5. [createDealActivity](#5-createdealactivity-) - Criar atividade
-
-**Categoria: Híbrida**
-6. [getOrCreatePerson](#6-getorcreateperson-) - Buscar ou criar pessoa
-
-**Categoria: Consulta Visível**
-7. [getDealWithCompleteInfo](#7-getdealwithcompleteinfo-) - Buscar deal completo
-8. [getActivitiesFromDeal](#8-getactivitiesfromdeal-) - Buscar atividades
-
-### **⚙️ Tools Automáticas (Ocultas)**
-
-**Categoria: Suporte LLM**
-9. [getAllExistingPipelines](#9-getallexistingpipelines-) - Contexto para LLM
-
-**Categoria: Consulta de Dependência**
-10. [getAllExistingDealsFromPerson](#10-getallexistingdealsfromperson-) - Busca automática
-
----
-
-## 1. createDeal 💼 
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "action",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "💼",
-  "show_in_list": true
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "createDeal",
-  "display_name": "Criar novo deal",
-  "description": "Cria um novo deal no Pipedrive com as informações fornecidas.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required",
-      "reason": "Precisa do person_id para associar o deal"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#title**
-
-```json
-{
-  "name": "title",
-  "display_name": "Título do deal",
-  "help_text": "Crie um título descritivo",
-  "type": "string",
-  
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve gerar o título?",
-    "placeholder": "Ex: Usar nome da pessoa + tipo de produto mencionado",
-    "default_instruction": "Criar título usando o nome da pessoa ou empresa",
-    "support_tool": null
-  },
-  
-  "validation": {
-    "min_length": 1,
-    "error_message": "Título é obrigatório"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ Título do deal * — Crie um título      │
-│                    descritivo          │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Criar título usando o nome da      │ │
-│ │ pessoa + tipo de produto           │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ 💡 Dica: Use informações da conversa  │
-│    para criar um título descritivo    │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campos mostrados diretamente       │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ Checkpoint é acionado na conversa       │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+    ┌────────────────────────────────┐
+    │ Sistema carrega tools ativas   │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Para cada parâmetro:           │
+    │ 1. Resolver DEPENDÊNCIAS       │
+    │    - Invocar tool GET          │
+    │    - Se array, aplicar critério│
+    │ 2. Chamar SUPPORT TOOLS (p/ LLM)│
+    │    - Injetar contexto extra    │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ LLM processa com:              │
+    │ • Contexto da conversa         │
+    │ • Dados das tools de suporte   │
+    │ • Instruções do usuário        │
+    │ • Valores fixos permitidos     │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Validações Finais do Sistema:  │
+    │ • Normalização (campos críticos)│
+    │ • Null handling                │
+    │ • Tipo de dados correto        │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Executar tool na API externa   │
+    │ ✅ Sucesso                      │
+    └────────────────────────────────┘
 ```
 
 ---
 
-#### **#person_id**
+## 👁️ **Regra 1: Visibilidade de Tools no Checkpoint**
 
-```json
-{
-  "name": "person_id",
-  "display_name": "Pessoa",
-  "type": "number",
-  
-  "required": true,
-  "visible": false,
-  "show_by_default": false,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "field": "id",
-      "type": "required",
-      "output_type": "single_value",
-      "auto_resolve": true
-    }
-  ],
-  
-  "validation": {
-    "required": true,
-    "error_message": "🔴 Tool @getOrCreatePerson deve estar ativa"
-  },
-  
-  "ui_indicators": {
-    "hidden": true,
-    "dependency_badge": "🔗 Resolvido por @getOrCreatePerson"
-  }
-}
-```
+Define quais tools aparecem na lista `@` para o usuário configurar explicitamente. A regra geral é: **actions são visíveis, queries são ocultas e automáticas**.
 
-**Exemplo Visual:**
+| Prefixo | Visível na Lista @? | Categoria | Invocação | Exemplo |
+|---|---|---|---|---|
+| `create`, `update`, `delete`, `add` | ✅ **SIM** | Ação | Explícita pelo usuário | `@createDeal` |
+| `getOrCreate` | ✅ **SIM** | Híbrida | Explícita pelo usuário | `@getOrCreatePerson` |
+| `get*` (comum) | ❌ **NÃO** | Consulta Automática | Por dependência ou suporte | `@getAllExistingDealsFromPerson` |
+| `get*` (exceção) | ✅ **SIM** (com ícone 🔍) | Consulta Visível | Explícita pelo usuário | `@getDealWithCompleteInfo` |
 
-```
-❌ NÃO APARECE NA UI
+### **Critérios:**
 
-Razão: Regra 2A - Dependência única (valor singular)
-→ @getOrCreatePerson retorna sempre 1 pessoa
-→ Não há escolha a fazer
-→ Sistema resolve automaticamente
-```
+-   **MOSTRAR (Ações e Híbridas):** Tools que modificam dados (`create`, `update`, `delete`) ou que podem modificar (`getOrCreate`) devem ser configuradas pelo usuário.
+-   **OCULTAR (Consultas Automáticas):** Tools que apenas leem dados (`get`, `getAll`) são, por padrão, invocadas automaticamente pelo sistema para satisfazer uma dependência ou para fornecer contexto a um parâmetro LLM. O usuário não as vê nem as configura diretamente.
+-   **MOSTRAR (Consulta Visível - Exceção):** Ocasionalmente, uma tool `get` pode ser útil para o usuário executar diretamente (ex: para verificar o status de algo). Nesses casos, ela pode ser marcada como visível e aparecerá com um ícone de busca (🔍) para diferenciá-la das ações.
 
 ---
 
-#### **#pipeline_id**
+## 🌳 **Árvore de Decisão: Guia Completo das 9 Regras de UX**
 
-```json
-{
-  "name": "pipeline_id",
-  "display_name": "Pipeline",
-  "help_text": "Selecione o(s) pipeline(s)",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": true,
-    "api_endpoint": {
-      "method": "GET",
-      "url": "/api/integrations/pipedrive/pipelines",
-      "trigger": "on_modal_open",
-      "frontend_call": true,
-      "response_mapping": {
-        "value_field": "id",
-        "label_field": "name"
-      }
-    },
-    "instruction": {
-      "required_when_multi": true,
-      "placeholder": "Quando usar cada pipeline selecionado?",
-      "validation": "required_if_multiple_selected"
-    }
-  },
-  
-  "validation": {
-    "min_selections": 0,
-    "error_message": "Selecione ao menos um pipeline ou deixe vazio para usar o padrão"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
+Esta árvore guia desenvolvedores e usuários através de todas as decisões necessárias para configurar parâmetros de tools corretamente.
 
-**Exemplo Visual - Single Select:**
+### **🎯 Para Desenvolvedores: Definindo o Schema da Tool**
 
 ```
-┌────────────────────────────────────────┐
-│ Pipeline — Selecione o(s) pipeline(s)  │
-│ ⚪ Opcional                            │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☐ 1 - Pipeline Vendas                 │
-│ ☑ 2 - Pipeline VIP                    │ ← selecionou 1
-│ ☐ 3 - Pipeline Inbound                │
-│                                        │
-│ ✅ Será enviado: Pipeline VIP (2)     │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    lista mostrada diretamente         │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ INÍCIO: Criando uma nova Tool ou Parâmetro                     │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     ▼
+    ┌────────────────────────────────────────┐
+    │ 1️⃣ Esta tool deve aparecer na lista @? │ (REGRA 1)
+    └────────┬───────────────────────┬────────┘
+             │                       │
+         NÃO │                       │ SIM
+             │                       │
+             ▼                       ▼
+    ┌────────────────────┐  ┌──────────────────────────┐
+    │ OCULTAR da lista @ │  │ MOSTRAR na lista @       │
+    │                    │  │                          │
+    │ ✓ Prefixo: get*    │  │ ✓ Prefixo: create/update │
+    │ ✓ Consulta pura    │  │ ✓ Ação/Modificação       │
+    │ ✓ Suporte para LLM │  │ ✓ getOrCreate (híbrida)  │
+    │                    │  │                          │
+    │ Invocação:         │  │ Invocação:               │
+    │ → Automática       │  │ → Explícita pelo usuário │
+    │ → Por dependência  │  │                          │
+    └────────────────────┘  └──────────┬───────────────┘
+                                       │
+                                       ▼
+                    ┌──────────────────────────────────────┐
+                    │ 2️⃣ Configurar parâmetros da tool:   │
+                    │    Para cada parâmetro...            │
+                    └──────────┬───────────────────────────┘
+                               │
+                               ▼
+              ┌────────────────────────────────────────┐
+              │ 3️⃣ Este parâmetro deve ser visível    │ (REGRA 2)
+              │    para o usuário configurar?          │
+              └────┬───────────────────────────┬────────┘
+                   │                           │
+               NÃO │                           │ SIM
+                   │                           │
+                   ▼                           ▼
+    ┌──────────────────────────┐  ┌────────────────────────────┐
+    │ OCULTAR parâmetro        │  │ MOSTRAR parâmetro          │
+    │                          │  │                            │
+    │ Quando ocultar:          │  │ Quando mostrar:            │
+    │ ✓ Dependência única      │  │ ✓ Dependência com array    │
+    │   (valor singular)       │  │   (múltiplas opções)       │
+    │ ✓ Parâmetro técnico      │  │ ✓ Decisão de negócio       │
+    │ ✓ Valor padrão óbvio     │  │ ✓ Conteúdo customizável    │
+    │                          │  │ ✓ Regras variáveis         │
+    │ Exemplo:                 │  │                            │
+    │ person_id (vem de        │  │ Exemplo:                   │
+    │ @getOrCreatePerson que   │  │ deal_id (vem de array,     │
+    │ retorna 1 pessoa)        │  │ precisa critério seleção)  │
+    └──────────────────────────┘  └────────┬───────────────────┘
+                                           │
+                                           ▼
+                        ┌──────────────────────────────────────┐
+                        │ 4️⃣ Definir `input_type`             │ (REGRA 3)
+                        │    (v3.8.0: APENAS UM tipo)          │
+                        └──────┬───────────────────────────────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+                ▼              ▼              ▼
+    ┌────────────────┐ ┌──────────────┐ ┌──────────────────┐
+    │ FIXO           │ │ LLM PROMPT   │ │ DEPENDÊNCIA      │
+    │                │ │              │ │                  │
+    │ Usuário define │ │ LLM decide   │ │ Vem de outra tool│
+    │ valores        │ │ dinamicamente│ │                  │
+    │ permitidos     │ │              │ │ Obrigatório para:│
+    │                │ │ Tool suporte │ │ → IDs de array   │
+    │ Quando usar:   │ │ provê contexto│ │ → Valor anterior │
+    │ → IDs tabelados│ │              │ │                  │
+    │ → Enum fechado │ │ Quando usar: │ │ Quando usar:     │
+    │ → Padrões fixos│ │ → Texto livre│ │ → Pipeline serial│
+    │                │ │ → Contexto   │ │ → Relação forte  │
+    └────────┬───────┘ └──────┬───────┘ └────────┬─────────┘
+             │                │                   │
+             │                │                   │
+             ▼                                      ▼
+    ┌────────────────┐                   ┌──────────────────┐
+    │ 5️⃣ Multi-select│                   │ Preview de campos│
+    │ permitido?     │                   │ disponíveis?     │
+    │ (REGRA 4)      │                   │ (REGRA 5E)       │
+    └────┬───────────┘                   └─────────┬────────┘
+         │                                         │
+         ▼                                         ▼
+    SE SIM:                               ┌──────────────────┐
+    → Campo instrução                     │ SE Dependência OU│
+      OBRIGATÓRIO                         │ LLM com support: │
+    → Validação impede                    │                  │
+      salvar sem instrução                │ Mostrar preview: │
+                                          │ • id             │
+                                          │ • status         │
+                                          │ • value          │
+                                          │ • created_at     │
+                                          │                  │
+                                          │ Campo LIVRE para │
+                                          │ critério/instrução│
+                                          └──────────────────┘
+                               │
+                               ▼
+              ┌────────────────────────────────────────┐
+              │ 6️⃣ Definir dependências e validações  │ (REGRA 5)
+              └────┬───────────────────────────────────┘
+                   │
+        ┌──────────┼──────────┬─────────────┐
+        │          │          │             │
+        ▼          ▼          ▼             ▼
+    ┌──────┐  ┌───────┐  ┌────────┐  ┌──────────┐
+    │ Tool │  │ Tool  │  │ Params │  │ Tool     │
+    │ obri-│  │ condi-│  │ relacio│  │ suporte  │
+    │ gatór│  │ cional│  │ nados  │  │ (info)   │
+    │ ia   │  │       │  │        │  │          │
+    │      │  │       │  │        │  │          │
+    │ 🔴   │  │ Pode  │  │ stage  │  │ ℹ️ LLM   │
+    │ Erro │  │ usar  │  │ depende│  │ terá     │
+    │ se   │  │ depen-│  │ de     │  │ contexto │
+    │ não  │  │ dência│  │ pipeline│ │ via tool │
+    │ ativa│  │ ou não│  │        │  │          │
+    └──────┘  └───────┘  └────────┘  └──────────┘
+                   │
+                   ▼
+              ┌────────────────────────────────┐
+              │ 7️⃣ Definir obrigatoriedade    │ (REGRA 7)
+              └────┬───────────────────────────┘
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+        ▼                     ▼
+    ┌──────────┐      ┌──────────────┐
+    │ REQUIRED │      │ OPTIONAL     │
+    │          │      │              │
+    │ Badge *  │      │ Toggle       │
+    │ Validação│      │ Colapsável   │
+    │ bloqueio │      │ Pode omitir  │
+    └──────────┘      └──────────────┘
+                   │
+                   ▼
+              ┌────────────────────────────────┐
+              │ 8️⃣ Configurar instruções       │ (REGRA 8)
+              └────┬───────────────────────────┘
+                   │
+        ┌──────────┴───────────┐
+        │                      │
+        ▼                      ▼
+    ┌─────────────┐    ┌──────────────┐
+    │ Por         │    │ Gerais       │
+    │ Parâmetro   │    │ (da tool)    │
+    │             │    │              │
+    │ Específica  │    │ Contexto     │
+    │ do campo    │    │ geral        │
+    │             │    │ execução     │
+    │ Ex:         │    │              │
+    │ "Extrair    │    │ Ex:          │
+    │ título da   │    │ "Cliente VIP,│
+    │ conversa"   │    │ priorizar"   │
+    └─────────────┘    └──────────────┘
+                   │
+                   ▼
+              ┌────────────────────────────────┐
+              │ 9️⃣ Documentar no schema JSON   │ (REGRA 9)
+              └────┬───────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────┐
+    │ Schema completo v3.8.0 com:              │
+    │ • name, display_name, type               │
+    │ • required, visible                      │
+    │ • input_type (v3.8.0: único)             │
+    │ • config (v3.8.0: unificado)             │
+    │ • dependencies                           │
+    │ • parameter_relationships                │
+    │ • validation                             │
+    │ • show_by_default (Regra 10 - Sistema)  │
+    │ • is_critical_field (Regra 11 - Sistema)│
+    │ • nullable_behavior (Regra 12 - Sistema)│
+    └──────────────────────────────────────────┘
 ```
 
-**Exemplo Visual - Multi-Select:**
+### **👤 Para Usuários: Configurando Tool no Checkpoint**
 
 ```
-┌────────────────────────────────────────┐
-│ Pipeline — Selecione o(s) pipeline(s)  │
-│ ⚪ Opcional                            │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☑ 1 - Pipeline Vendas                 │ ← selecionou
-│ ☑ 2 - Pipeline VIP                    │ ← selecionou
-│ ☐ 3 - Pipeline Inbound                │
-│                                        │
-│ ⚠️ Você selecionou múltiplos valores   │
-│                                        │
-│ Instrução (obrigatória): *             │
-│ ┌────────────────────────────────────┐ │
-│ │ Se cliente mencionar "premium" ou  │ │
-│ │ "vip", usar Pipeline VIP (2).      │ │
-│ │ Caso contrário, usar Pipeline      │ │
-│ │ Vendas (1).                        │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ✅ LLM escolherá entre os valores     │
-│    selecionados usando a instrução    │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    lista mostrada diretamente         │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ INÍCIO: Usuário seleciona @tool da lista                       │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     ▼
+    ┌────────────────────────────────────────┐
+    │ Modal abre com parâmetros visíveis     │
+    └────────────────┬───────────────────────┘
+                     │
+                     ▼
+        ┌────────────────────────────────┐
+        │ Para cada PARÂMETRO visível:   │
+        └────────┬───────────────────────┘
+                 │
+                 ▼
+    ┌─────────────────────────────────────────┐
+    │ 1️⃣ Apenas UM tipo de preenchimento     │ (REGRA 3)
+    │    permitido pelo schema?               │
+    └────┬───────────────────────────┬────────┘
+         │                           │
+      SIM│                           │ NÃO (múltiplos tipos)
+         │                           │
+         ▼                           ▼
+┌──────────────────────────┐  ┌──────────────────────────────────┐
+│ Mostrar UI do tipo       │  │ 2️⃣ Usuário escolhe o tipo:      │
+│ único DIRETAMENTE        │  │    ┌──────────────────────────┐  │
+│ (sem seletor de tipo)    │  │    │ [Fixo | LLM]             │  │
+│                          │  │    └──────────────────────────┘  │
+└───────────┬──────────────┘  └───────────┬──────────────────────┘
+            │                             │
+            └─────────────┬───────────────┘
+                          │
+                          ▼
+    ┌──────────────────────────────────────────┐
+    │ 3️⃣ UI se adapta ao tipo escolhido/definido:│ (REGRA 6)
+    └────┬────────────────────────────┬──────────┘
+         │                            │
+         ▼                            ▼
+    ┌──────────┐                 ┌──────────┐
+    │ SE FIXO  │                 │ SE LLM   │
+    └────┬─────┘                 └────┬─────┘
+         │                            │
+         ▼                            ▼
+    ┌──────────────────┐   ┌──────────────────┐
+    │ UI mostra:       │   │ UI mostra:       │
+    │                  │   │                  │
+    │ ☑ Lista valores  │   │ ✎ Text area      │
+    │   disponíveis    │   │   instrução      │
+    │                  │   │                  │
+    │ Multi-select?    │   │ ℹ️ Tool suporte  │
+    │ → SE SIM:        │   │   será chamada   │
+    │   ⚠️ Campo       │   │   em runtime     │
+    │   instrução      │   │                  │
+    │   OBRIGATÓRIO    │   │                  │
+    │                  │   │                  │
+    └────┬─────────────┘   └────┬─────────────┘
+         │                      │
+         └──────────┬───────────┘
+                    │
+                    ▼
+    ┌───────────────────────────────────────┐
+    │ 4️⃣ SE parâmetro tem DEPENDÊNCIA:     │ (REGRA 5D)
+    └────┬──────────────────────────────────┘
+         │
+         ▼
+    ┌──────────────────────────────────────┐
+    │ Tipo = Dependência OBRIGATÓRIO       │
+    │ (UI mostrada diretamente)            │
+    │                                      │
+    │ ℹ️ Preview de campos disponíveis:   │
+    │    • id (number)                     │
+    │    • status (enum): open, won, lost  │
+    │    • value (number)                  │
+    │    • created_at (datetime)           │
+    │                                      │
+    │ Critério para seleção:               │
+    │ ┌────────────────────────────────┐   │
+    │ │ Deal com status "open" e valor │   │
+    │ │ maior que 1000                 │   │
+    │ └────────────────────────────────┘   │
+    │                                      │
+    │ 💡 Use os campos disponíveis acima  │
+    │    para criar sua instrução livre    │
+    └──────────────────────────────────────┘
+                    │
+                    ▼
+    ┌───────────────────────────────────────┐
+    │ 4.1️⃣ SE tipo LLM com tool suporte:   │ (REGRA 5E)
+    └────┬──────────────────────────────────┘
+         │
+         ▼
+    ┌──────────────────────────────────────┐
+    │ Também mostra preview de campos!     │
+    │                                      │
+    │ ℹ️ Tool de suporte:                 │
+    │    @searchEmailTemplates             │
+    │                                      │
+    │ ℹ️ Campos disponíveis:              │
+    │    • id (number)                     │
+    │    • name (string)                   │
+    │    • subject (string)                │
+    │    • tags (array)                    │
+    │                                      │
+    │ Instrução para LLM:                  │
+    │ ┌────────────────────────────────┐   │
+    │ │ Usar template com a tag        │   │
+    │ │ "onboarding"                   │   │
+    │ └────────────────────────────────┘   │
+    │                                      │
+    │ 💡 Você pode usar: id, name, subject │
+    └──────────────────────────────────────┘
+                    │
+                    ▼
+    ┌───────────────────────────────────────┐
+    │ 5️⃣ Validações automáticas:           │ (REGRA 7)
+    └────┬──────────────────────────────────┘
+         │
+         ▼
+    ┌──────────────────────────────────────┐
+    │ • Campos obrigatórios (*) preenchidos│
+    │ • Multi-select tem instrução         │
+    │ • Tool dependente está ativa         │
+    │ • Parâmetros relacionados válidos    │
+    │                                      │
+    │ ✅ Tudo OK → Botão "Salvar" ativo    │
+    │ ❌ Falta algo → Botão desabilitado   │
+    └──────────────────────────────────────┘
+                    │
+                    ▼
+    ┌───────────────────────────────────────┐
+    │ 6️⃣ Instruções gerais (opcional):     │ (REGRA 8)
+    └────┬──────────────────────────────────┘
+         │
+         ▼
+    ┌──────────────────────────────────────┐
+    │ Text area no final do modal:         │
+    │                                      │
+    │ "Contexto geral para esta tool"     │
+    │                                      │
+    │ Ex: "Cliente é VIP, priorizar"       │
+    │     "Criar apenas se valor > 1000"   │
+    └──────────────────────────────────────┘
+                    │
+                    ▼
+    ┌───────────────────────────────────────┐
+    │ SALVAR CONFIGURAÇÃO                   │
+    │ → Tool ativa no checkpoint            │
+    │ → Pronta para execução em runtime     │
+    └───────────────────────────────────────┘
 ```
 
----
-
-#### **#stage_id**
-
-```json
-{
-  "name": "stage_id",
-  "display_name": "Estágio",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": false,
-    "api_endpoint": {
-      "method": "GET",
-      "url": "/api/integrations/pipedrive/stages",
-      "trigger": "on_pipeline_selected",
-      "frontend_call": true,
-      "params_from": ["pipeline_id"],
-      "response_mapping": {
-        "value_field": "id",
-        "label_field": "name"
-      }
-    }
-  },
-  
-  "parameter_relationships": [
-    {
-      "depends_on_parameter": "pipeline_id",
-      "type": "contextual",
-      "behavior": {
-        "disabled_until_filled": true,
-        "data_source_filter": "pipeline_id",
-        "dynamic_loading": true,
-        "cascade_clear": true
-      },
-      "ui": {
-        "disabled_message": "Selecione um pipeline primeiro",
-        "loading_message": "Carregando estágios...",
-        "relationship_indicator": "🔗 Relacionado a: {pipeline_id.name}"
-      }
-    }
-  ],
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
+### **⚡ Fluxo de Runtime (Execução)**
 
 ```
-┌────────────────────────────────────────┐
-│ #stage_id                              │
-│ ⚪ Opcional                            │
-│ 🔗 Relacionado a: Pipeline VIP         │
-│                                        │
-│ ⏳ Carregando estágios...              │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☐ 101 - Contato inicial               │
-│ ☑ 102 - Qualificação                  │ ← selecionou
-│ ☐ 103 - Proposta                      │
-│ ☐ 104 - Negociação                    │
-│                                        │
-│ ✅ Será enviado: Qualificação (102)   │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    lista mostrada diretamente         │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ Checkpoint é acionado na conversa       │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+    ┌────────────────────────────────┐
+    │ Sistema carrega tools ativas   │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Para cada parâmetro tipo LLM:  │
+    │ → Chamar tool de suporte       │
+    │ → Injetar contexto             │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Para dependências:             │
+    │ → Invocar tool GET automática  │
+    │ → SE array: aplicar critério   │
+    │ → SE único: usar valor direto  │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ LLM processa com:              │
+    │ • Contexto da conversa         │
+    │ • Dados de tools suporte       │
+    │ • Instruções do usuário        │
+    │ • Valores fixos permitidos     │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Validações finais:             │
+    │ • Normalização (campo crítico) │
+    │ • Null handling                │
+    │ • Tipo de dados correto        │
+    └────────┬───────────────────────┘
+             │
+             ▼
+    ┌────────────────────────────────┐
+    │ Executar tool na API externa   │
+    │ ✅ Sucesso                      │
+    └────────────────────────────────┘
 ```
 
----
+### **🎯 Decisões Rápidas por Cenário**
 
-#### **#user_id**
-
-```json
-{
-  "name": "user_id",
-  "display_name": "Responsável (owner)",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": true,
-    "api_endpoint": {
-      "method": "GET",
-      "url": "/api/integrations/pipedrive/users",
-      "trigger": "on_modal_open",
-      "frontend_call": true,
-      "response_mapping": {
-        "value_field": "id",
-        "label_field": "name"
-      }
-    },
-    "instruction": {
-      "required_when_multi": true,
-      "placeholder": "Quando usar cada responsável?"
-    }
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #user_id                               │
-│ ⚪ Opcional                            │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☑ 10 - João Silva (vendedor)          │
-│ ☐ 11 - Maria Santos (gerente)         │
-│ ☐ 12 - Pedro Costa (SDR)              │
-│                                        │
-│ ✅ Será enviado: João Silva (10)      │
-│                                        │
-│ 💡 Se não definir, usa o usuário que  │
-│    criou o deal ou padrão da conta    │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    lista mostrada diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#value**
-
-```json
-{
-  "name": "value",
-  "display_name": "Valor",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve extrair/calcular o valor?",
-    "placeholder": "Ex: Extrair valor mencionado na conversa"
-  },
-  
-  "validation": {
-    "min": 0,
-    "error_message": "Valor deve ser maior ou igual a zero"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false,
-    "zero_is_valid": true
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #value                                 │
-│ ⚪ Opcional                            │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Extrair valor mencionado pelo      │ │
-│ │ cliente na conversa                │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ 💡 Se não definir, deal fica sem      │
-│    valor (0 ou null)                  │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#status**
-
-```json
-{
-  "name": "status",
-  "display_name": "Status",
-  "type": "enum",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": false,
-    "enum_values": [
-      { "value": "open", "label": "Aberto (open)" },
-      { "value": "won", "label": "Ganho (won)" },
-      { "value": "lost", "label": "Perdido (lost)" }
-    ],
-    "hardcoded": true,
-    "default_value": "open"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #status                                │
-│ ⚪ Opcional                            │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☑ open - Aberto                       │
-│ ☐ won - Ganho                         │
-│ ☐ lost - Perdido                      │
-│                                        │
-│ ✅ Será enviado: open                 │
-│                                        │
-│ 💡 Se não definir, usa "open" por     │
-│    padrão                             │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    enum validado pela API             │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#probability**
-
-```json
-{
-  "name": "probability",
-  "display_name": "Probabilidade",
-  "help_text": "Estimativa de fechamento (0-100%)",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve estimar a probabilidade?",
-    "placeholder": "Ex: Baseado no engajamento do cliente"
-  },
-  
-  "validation": {
-    "min": 0,
-    "max": 100,
-    "error_message": "Probabilidade deve estar entre 0 e 100"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false,
-    "zero_is_valid": true
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #probability                           │
-│ ⚪ Opcional                            │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Estimar probabilidade baseado no   │ │
-│ │ engajamento e interesse do cliente │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ✅ Validação: 0-100%                  │
-│                                        │
-│ 💡 Se não definir, usa probabilidade  │
-│    padrão do estágio                  │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
+| Cenário | Regra Principal | Decisão |
+|---------|----------------|---------|
+| Tool começa com `get` sem side effects | 1 | ❌ Não mostrar na lista @ |
+| Tool `create`, `update`, `delete` | 1 | ✅ Mostrar na lista @ |
+| Parâmetro vem de tool que retorna 1 valor | 2 | ❌ Ocultar parâmetro |
+| Parâmetro vem de tool que retorna array | 2, 5D | ✅ Mostrar com campo livre + preview |
+| ID que precisa contexto dinâmico | 3, 5E | LLM + tool suporte + preview campos |
+| ID com valores tabelados conhecidos | 3 | Fixo + lista carregada |
+| Usuário seleciona múltiplos valores fixos | 4 | Campo instrução obrigatório |
+| Parâmetro obrigatório na API | 7 | Badge * + validação |
+| Texto livre gerado pela LLM | 3, 8 | LLM Prompt + instrução específica |
+| Dependência com array | 5D | Campo LIVRE (não opções pré-definidas) |
+| LLM com support tool | 5E | Preview de campos disponíveis |
 
 ---
 
-## 2. updateDeal ✏️
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "action",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "✏️",
-  "show_in_list": true
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "updateDeal",
-  "display_name": "Atualizar deal existente",
-  "description": "Atualiza os dados de um deal existente no Pipedrive, como título, responsável, estágio, valor, e outros campos relevantes.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required",
-      "reason": "Necessário para identificar a pessoa"
-    },
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required",
-      "reason": "Necessário para identificar qual deal atualizar"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#deal_id** 🔴 CRÍTICO
-
-```json
-{
-  "name": "deal_id",
-  "display_name": "Deal",
-  "type": "number",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependency_config": {
-    "source_tool": "getAllExistingDealsFromPerson",
-    "source_field": "id",
-    "output_type": "array",
-    "selection_required": true,
-    "show_fields_preview": true,
-    "available_fields": [
-      {
-        "name": "id",
-        "type": "number",
-        "description": "ID único do deal"
-      },
-      {
-        "name": "title",
-        "type": "string",
-        "description": "Título do deal"
-      },
-      {
-        "name": "status",
-        "type": "enum",
-        "values": ["open", "won", "lost", "deleted"],
-        "description": "Status atual do deal"
-      },
-      {
-        "name": "value",
-        "type": "number",
-        "description": "Valor monetário do deal"
-      },
-      {
-        "name": "currency",
-        "type": "string",
-        "description": "Moeda (BRL, USD, EUR)"
-      },
-      {
-        "name": "stage_id",
-        "type": "number",
-        "description": "ID do estágio atual"
-      },
-      {
-        "name": "stage_current",
-        "type": "string",
-        "description": "Nome do estágio atual"
-      },
-      {
-        "name": "pipeline_id",
-        "type": "number",
-        "description": "ID do pipeline"
-      },
-      {
-        "name": "person_id",
-        "type": "number",
-        "description": "ID da pessoa associada"
-      },
-      {
-        "name": "created_at",
-        "type": "datetime",
-        "description": "Data de criação"
-      },
-      {
-        "name": "updated_at",
-        "type": "datetime",
-        "description": "Última atualização"
-      }
-    ],
-    "selection_strategy": {
-      "type": "llm_with_criteria",
-      "prompt_required": true,
-      "prompt_hint": "Use os campos disponíveis acima para criar sua instrução"
-    }
-  },
-  
-  "dependencies": [
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required",
-      "auto_invoke": true
-    }
-  ],
-  
-  "validation": {
-    "required": true,
-    "error_message": "🔴 Critério de seleção é obrigatório quando existem múltiplos deals"
-  },
-  
-  "ui_indicators": {
-    "badge": "🔴 Campo Crítico",
-    "help_text": "Campo usado para identificar qual deal será atualizado"
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────────────────┐
-│ #deal_id * 🔴 Campo Crítico                        │
-│                                                    │
-│ 🔗 Depende de: @getAllExistingDealsFromPerson     │
-│ ⚠️ Esta tool retorna múltiplos deals               │
-│                                                    │
-│ ℹ️ Campos disponíveis do Deal:                    │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ • id (number) - ID único do deal               │ │
-│ │ • title (string) - Título do deal              │ │
-│ │ • status (enum) - open, won, lost, deleted     │ │
-│ │ • value (number) - Valor monetário             │ │
-│ │ • currency (string) - BRL, USD, EUR            │ │
-│ │ • stage_id (number) - ID do estágio            │ │
-│ │ • stage_current (string) - Nome do estágio     │ │
-│ │ • pipeline_id (number) - ID do pipeline        │ │
-│ │ • created_at (datetime) - Data de criação      │ │
-│ │ • updated_at (datetime) - Última atualização   │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                    │
-│ Critério para seleção: *                          │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ Deal com status "open" e que esteja no         │ │
-│ │ estágio "Negociação" (stage_current)           │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                    │
-│ 💡 Use os campos disponíveis acima para criar     │
-│    sua instrução precisa                          │
-│                                                    │
-│ 🔴 Campo usado para identificar qual deal será    │
-│    atualizado                                     │
-│                                                    │
-│ ℹ️ Apenas 1 tipo permitido (Dependência) -        │
-│    campos mostrados diretamente                   │
-└────────────────────────────────────────────────────┘
-```
-
----
-
-#### **#title**
-
-```json
-{
-  "name": "title",
-  "display_name": "Título",
-  "type": "string",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve gerar o novo título?",
-    "placeholder": "Ex: Atualizar apenas se cliente mudar de empresa",
-    "support_tool": null
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
----
-
-#### **#user_id**
-
-```json
-{
-  "name": "user_id",
-  "display_name": "Responsável (owner)",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": true,
-    "api_endpoint": {
-      "method": "GET",
-      "url": "/api/integrations/pipedrive/users",
-      "trigger": "on_modal_open",
-      "frontend_call": true,
-      "response_mapping": {
-        "value_field": "id",
-        "label_field": "name"
-      }
-    },
-    "instruction": {
-      "required_when_multi": true,
-      "placeholder": "Quando transferir para cada responsável?"
-    }
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #user_id                               │
-│ ⚪ Opcional                            │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☑ 10 - João Silva (vendedor)          │
-│ ☑ 11 - Maria Santos (gerente)         │
-│ ☐ 12 - Pedro Costa (SDR)              │
-│                                        │
-│ Instrução (obrigatória): *             │
-│ ┌────────────────────────────────────┐ │
-│ │ Se deal for de valor alto (>5000), │ │
-│ │ transferir para Maria Santos (11). │ │
-│ │ Caso contrário, João Silva (10).   │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    lista mostrada diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#stage_id**
-
-```json
-{
-  "name": "stage_id",
-  "display_name": "Estágio",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": false,
-    "api_endpoint": {
-      "method": "GET",
-      "url": "/api/integrations/pipedrive/stages",
-      "trigger": "on_modal_open",
-      "frontend_call": true,
-      "response_mapping": {
-        "value_field": "id",
-        "label_field": "name"
-      }
-    }
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
----
-
-#### **#value**
-
-```json
-{
-  "name": "value",
-  "display_name": "Valor",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve extrair/calcular o valor?",
-    "placeholder": "Ex: Extrair valor mencionado na conversa"
-  },
-  
-  "validation": {
-    "min": 0,
-    "error_message": "Valor deve ser maior ou igual a zero"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false,
-    "zero_is_valid": true
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #value                                 │
-│ ⚪ Opcional                            │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Extrair valor mencionado pelo      │ │
-│ │ cliente na conversa                │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#currency**
-
-```json
-{
-  "name": "currency",
-  "display_name": "Moeda",
-  "type": "string",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": false,
-    "enum_values": [
-      { "value": "BRL", "label": "Real Brasileiro (BRL)" },
-      { "value": "USD", "label": "Dólar Americano (USD)" },
-      { "value": "EUR", "label": "Euro (EUR)" },
-      { "value": "GBP", "label": "Libra Esterlina (GBP)" }
-    ],
-    "hardcoded": true
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #currency                              │
-│ ⚪ Opcional                            │
-│                                        │
-│ Valores disponíveis:                   │
-│ ☑ BRL - Real Brasileiro               │
-│ ☐ USD - Dólar Americano               │
-│ ☐ EUR - Euro                          │
-│ ☐ GBP - Libra Esterlina               │
-│                                        │
-│ ✅ Será enviado: BRL                  │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    enum validado pela API             │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#status**
-
-```json
-{
-  "name": "status",
-  "display_name": "Status",
-  "type": "enum",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "multi_select": true,
-    "enum_values": [
-      { "value": "open", "label": "Aberto (open)" },
-      { "value": "won", "label": "Ganho (won)" },
-      { "value": "lost", "label": "Perdido (lost)" },
-      { "value": "deleted", "label": "Deletado (deleted)" }
-    ],
-    "hardcoded": true,
-    "instruction": {
-      "required_when_multi": true,
-      "placeholder": "Quando usar cada status?"
-    }
-  },
-  
-  "parameter_relationships": [
-    {
-      "depends_on_parameter": "lost_reason",
-      "type": "conditional",
-      "behavior": {
-        "show_when": "status === 'lost'",
-        "required_when_shown": true
-      }
-    }
-  ],
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
----
-
-#### **#lost_reason**
-
-```json
-{
-  "name": "lost_reason",
-  "display_name": "Motivo da perda",
-  "type": "string",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve extrair o motivo?",
-    "placeholder": "Ex: Extrair motivo mencionado pelo cliente",
-    "support_tool": null
-  },
-  
-  "parameter_relationships": [
-    {
-      "depends_on_parameter": "status",
-      "type": "conditional",
-      "behavior": {
-        "show_only_when": "status === 'lost'",
-        "required_when_shown": true
-      },
-      "ui": {
-        "hidden_message": "Aparece apenas quando status = lost",
-        "required_indicator": "* Obrigatório quando status é 'lost'"
-      }
-    }
-  ],
-  
-  "validation": {
-    "required_if": "status === 'lost'",
-    "error_message": "Motivo da perda é obrigatório quando status é 'lost'"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual (quando status = lost):**
-
-```
-┌────────────────────────────────────────┐
-│ #lost_reason *                         │
-│ 🟡 Obrigatório (status é 'lost')       │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Extrair o motivo da perda          │ │
-│ │ mencionado pelo cliente            │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ⚠️ Aparece apenas quando status = lost│
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#expected_close_date**
-
-```json
-{
-  "name": "expected_close_date",
-  "display_name": "Data esperada de fechamento",
-  "type": "string",
-  "format": "date",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve definir a data?",
-    "placeholder": "Ex: Usar data mencionada pelo cliente ou calcular +30 dias",
-    "format_note": "Sistema normaliza automaticamente para YYYY-MM-DD"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #expected_close_date                   │
-│ ⚪ Opcional                            │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Usar data mencionada pelo cliente  │ │
-│ │ ou calcular +30 dias               │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ⚙️ Sistema normaliza para YYYY-MM-DD  │
-│    automaticamente                     │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#probability**
-
-```json
-{
-  "name": "probability",
-  "display_name": "Probabilidade",
-  "help_text": "Estimativa de fechamento (0-100%)",
-  "type": "number",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como a LLM deve estimar a probabilidade?",
-    "placeholder": "Ex: Baseado no engajamento do cliente"
-  },
-  
-  "validation": {
-    "min": 0,
-    "max": 100,
-    "error_message": "Probabilidade deve estar entre 0 e 100"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false,
-    "zero_is_valid": true
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #probability                           │
-│ ⚪ Opcional                            │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Estimar probabilidade baseado no   │ │
-│ │ engajamento e interesse do cliente │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ✅ Validação: 0-100%                  │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-## 3. createNote 📝
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "action",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "📝",
-  "show_in_list": true
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "createNote",
-  "display_name": "Criar nova nota",
-  "description": "Cria uma nova nota para um deal específico no Pipedrive.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required"
-    },
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#deal_id**
-
-```json
-{
-  "name": "deal_id",
-  "display_name": "Deal",
-  "type": "number",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependency_config": {
-    "source_tool": "getAllExistingDealsFromPerson",
-    "source_field": "id",
-    "output_type": "array",
-    "selection_required": true,
-    "show_fields_preview": true,
-    "available_fields": [
-      { "name": "id", "type": "number" },
-      { "name": "title", "type": "string" },
-      { "name": "status", "type": "enum", "values": ["open", "won", "lost"] },
-      { "name": "stage_current", "type": "string" }
-    ],
-    "selection_strategy": {
-      "type": "llm_with_criteria",
-      "prompt_required": true,
-      "prompt_hint": "Qual deal receberá a nota?"
-    }
-  }
-}
-```
-
----
-
-#### **#content**
-
-```json
-{
-  "name": "content",
-  "display_name": "Conteúdo da nota",
-  "type": "string",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "O que a nota deve conter?",
-    "placeholder": "Ex: Resumir pontos principais da conversa",
-    "support_tool": null
-  },
-  
-  "validation": {
-    "min_length": 1,
-    "error_message": "Conteúdo é obrigatório"
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #content *                             │
-│ 🟡 Obrigatório                         │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Criar um resumo executivo da       │ │
-│ │ conversa incluindo:                │ │
-│ │ - Necessidades identificadas       │ │
-│ │ - Objeções mencionadas             │ │
-│ │ - Próximos passos acordados        │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-## 4. updateNote ✏️📝
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "action",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "✏️",
-  "show_in_list": true
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "updateNote",
-  "display_name": "Atualizar nota existente",
-  "description": "Atualiza o conteúdo de uma nota existente no Pipedrive.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required"
-    },
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required"
-    },
-    {
-      "tool": "getDealWithCompleteInfo",
-      "type": "required",
-      "reason": "Necessário para obter as notas existentes do deal"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#note_id**
-
-```json
-{
-  "name": "note_id",
-  "display_name": "Nota",
-  "type": "number",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependency_config": {
-    "source_tool": "getDealWithCompleteInfo",
-    "source_field": "notes[].id",
-    "output_type": "array",
-    "selection_required": true,
-    "show_fields_preview": true,
-    "note": "Notação notes[].id indica que o campo id vem de um array de objetos notes retornado pela tool",
-    "available_fields": [
-      {
-        "name": "id",
-        "type": "number",
-        "description": "ID da nota"
-      },
-      {
-        "name": "content",
-        "type": "string",
-        "description": "Conteúdo atual da nota"
-      }
-    ],
-    "selection_strategy": {
-      "type": "llm_with_criteria",
-      "prompt_required": true,
-      "prompt_hint": "Qual nota deve ser atualizada?"
-    }
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────────────────┐
-│ #note_id * 🔴 Campo Crítico                        │
-│                                                    │
-│ 🔗 Depende de: @getDealWithCompleteInfo           │
-│                                                    │
-│ ℹ️ Campos disponíveis da Nota:                    │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ • id (number) - ID da nota                     │ │
-│ │ • content (string) - Conteúdo atual            │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                    │
-│ Critério para seleção: *                          │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ A nota mais recente (última criada)            │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                    │
-│ ℹ️ Apenas 1 tipo permitido (Dependência) -        │
-│    campos mostrados diretamente                   │
-└────────────────────────────────────────────────────┘
-```
-
----
-
-#### **#content**
-
-```json
-{
-  "name": "content",
-  "display_name": "Novo conteúdo",
-  "type": "string",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como atualizar o conteúdo?",
-    "placeholder": "Ex: Adicionar informações da nova conversa ao conteúdo existente"
-  }
-}
-```
-
----
-
-## 5. createDealActivity 📅
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "action",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "📅",
-  "show_in_list": true
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "createDealActivity",
-  "display_name": "Criar atividade para deal",
-  "description": "Cria uma nova atividade (reunião) para um deal específico no Pipedrive.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required"
-    },
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#subject**
-
-```json
-{
-  "name": "subject",
-  "display_name": "Assunto",
-  "type": "string",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como gerar o assunto da atividade?",
-    "placeholder": "Ex: Reunião de alinhamento com [nome da pessoa]"
-  }
-}
-```
-
----
-
-#### **#deal_id**
-
-```json
-{
-  "name": "deal_id",
-  "display_name": "Deal",
-  "type": "number",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependency_config": {
-    "source_tool": "getAllExistingDealsFromPerson",
-    "source_field": "id",
-    "output_type": "array",
-    "selection_required": true,
-    "show_fields_preview": true,
-    "available_fields": [
-      { "name": "id", "type": "number" },
-      { "name": "title", "type": "string" },
-      { "name": "status", "type": "enum", "values": ["open", "won", "lost"] }
-    ]
-  }
-}
-```
-
----
-
-#### **#due_date**
-
-```json
-{
-  "name": "due_date",
-  "display_name": "Data",
-  "type": "string",
-  "format": "date",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como definir a data?",
-    "placeholder": "Ex: Usar data mencionada pelo cliente",
-    "format_note": "Sistema normaliza para YYYY-MM-DD automaticamente"
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #due_date *                            │
-│ 🟡 Obrigatório                         │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Usar data mencionada pelo cliente  │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ⚙️ Sistema normaliza para YYYY-MM-DD  │
-│    automaticamente                     │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#due_time**
-
-```json
-{
-  "name": "due_time",
-  "display_name": "Horário",
-  "type": "string",
-  "format": "time",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como definir o horário?",
-    "placeholder": "Ex: Usar horário mencionado ou sugerir 14:00",
-    "format_note": "Sistema normaliza para HH:mm automaticamente"
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #due_time *                            │
-│ 🟡 Obrigatório                         │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Usar horário mencionado pelo       │ │
-│ │ cliente. Se não mencionar,         │ │
-│ │ sugerir 14:00                      │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ⚙️ Sistema normaliza para HH:mm       │
-│    automaticamente                     │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#duration**
-
-```json
-{
-  "name": "duration",
-  "display_name": "Duração",
-  "type": "string",
-  "format": "time",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "input_type": "time",
-    "format": "HH:mm",
-    "default_value": "01:00",
-    "presets": [
-      { "value": "00:30", "label": "30 minutos" },
-      { "value": "01:00", "label": "1 hora" },
-      { "value": "01:30", "label": "1h30" },
-      { "value": "02:00", "label": "2 horas" }
-    ]
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #duration                              │
-│ ⚪ Opcional                            │
-│                                        │
-│ Duração padrão:                        │
-│ ☐ 00:30 - 30 minutos                  │
-│ ☑ 01:00 - 1 hora                      │
-│ ☐ 01:30 - 1h30                        │
-│ ☐ 02:00 - 2 horas                     │
-│                                        │
-│ ✅ Será enviado: 01:00                │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (Fixo) -   │
-│    lista mostrada diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-#### **#note**
-
-```json
-{
-  "name": "note",
-  "display_name": "Nota interna",
-  "type": "string",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "O que incluir na nota interna?",
-    "placeholder": "Ex: Contexto da conversa para o vendedor",
-    "help_text": "Nota visível apenas internamente (não enviada ao lead)"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
----
-
-#### **#public_description**
-
-```json
-{
-  "name": "public_description",
-  "display_name": "Descrição pública",
-  "type": "string",
-  "required": false,
-  "visible": true,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "O que incluir na descrição pública?",
-    "placeholder": "Ex: Agenda e pauta da reunião",
-    "help_text": "Descrição visível para o lead"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
----
-
-#### **#attendees**
-
-```json
-{
-  "name": "attendees",
-  "display_name": "Participantes",
-  "type": "array",
-  "item_type": "object",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Quem deve ser incluído como participante?",
-    "placeholder": "Ex: Adicionar a pessoa do deal + vendedor responsável",
-    "default_instruction": "Incluir a pessoa associada ao deal e outros participantes mencionados"
-  },
-  
-  "validation": {
-    "min_items": 1,
-    "error_message": "Pelo menos um participante é obrigatório"
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌────────────────────────────────────────┐
-│ #attendees *                           │
-│ 🟡 Obrigatório                         │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Adicionar sempre:                  │ │
-│ │ 1. A pessoa associada ao deal      │ │
-│ │ 2. O vendedor responsável          │ │
-│ │ 3. Outros participantes mencionados│ │
-│ │    na conversa                     │ │
-│ └────────────────────────────────────┘ │
-│                                        │
-│ ✅ Validação: Mínimo 1 participante   │
-│                                        │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -    │
-│    campo mostrado diretamente         │
-└────────────────────────────────────────┘
-```
-
----
-
-## 6. getOrCreatePerson 👤
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "hybrid",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "👤",
-  "show_in_list": true,
-  "reason": "Tool híbrida - 'get' mas com side effect (create)"
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "getOrCreatePerson",
-  "display_name": "Buscar ou criar pessoa",
-  "description": "Busca uma pessoa no Pipedrive pelo telefone. Se não encontrar, cria uma nova com as informações do cliente.",
-  "integration": "pipedrive",
-  "dependencies": []
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#fullname**
-
-```json
-{
-  "name": "fullname",
-  "display_name": "Nome completo",
-  "type": "string",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como extrair o nome?",
-    "placeholder": "Ex: Extrair nome completo da conversa",
-    "default_instruction": "Extrair nome completo do cliente da conversa"
-  }
-}
-```
-
----
-
-#### **#email**
-
-```json
-{
-  "name": "email",
-  "display_name": "Email",
-  "type": "string",
-  "format": "email",
-  "required": false,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como extrair o email?",
-    "placeholder": "Ex: Extrair email da conversa",
-    "null_handling": {
-      "instruction": "Se não encontrar email, retorne explicitamente NULL",
-      "parse_strategy": "convert_string_null_to_real_null",
-      "fallback_value": null
-    }
-  },
-  
-  "validation": {
-    "format": "email",
-    "error_message": "Formato de email inválido"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
----
-
-#### **#phone** 🔴 CRÍTICO
-
-```json
-{
-  "name": "phone",
-  "display_name": "Telefone",
-  "help_text": "Número do cliente",
-  "type": "string",
-  "format": "phone",
-  
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["llm"],
-  "default_type": "llm",
-  
-  "llm_config": {
-    "instruction_hint": "Como extrair o telefone?",
-    "placeholder": "Ex: Extrair telefone da conversa",
-    "default_instruction": "Extrair telefone do cliente. Use lead_phone das variáveis se disponível."
-  },
-  
-  "validation": {
-    "format": "e164_international",
-    "error_message": "Telefone é obrigatório e será normalizado automaticamente"
-  },
-  
-  "normalization": {
-    "enabled": true,
-    "auto_apply": true,
-    "rules": [
-      "remove_whitespace",
-      "remove_special_chars",
-      "add_country_code_if_missing",
-      "format_e164"
-    ]
-  },
-  
-  "ui_indicators": {
-    "badge": "🔴 Campo Crítico",
-    "warning": "Campo usado para buscar pessoas existentes. Sistema normaliza formato automaticamente para padrão internacional (+5511987654321)."
-  }
-}
-```
-
-**Exemplo Visual:**
-
-```
-┌─────────────────────────────────────────────────┐
-│ #phone * 🔴 Campo Crítico                       │
-│                                                 │
-│ Instrução para LLM:                             │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ Extrair telefone da conversa.               │ │
-│ │ Se disponível, usar lead_phone das          │ │
-│ │ variáveis da campanha.                      │ │
-│ └─────────────────────────────────────────────┘ │
-│                                                 │
-│ 🔴 Campo usado para buscar pessoas existentes. │
-│    Sistema normaliza formato automaticamente   │
-│    para padrão internacional (+5511987654321). │
-│                                                 │
-│ ⚙️ Normalizações aplicadas automaticamente:    │
-│    • Remove espaços e caracteres especiais     │
-│    • Adiciona código do país se ausente        │
-│    • Formata para padrão E.164                 │
-│                                                 │
-│ ℹ️ Apenas 1 tipo permitido (LLM) -             │
-│    campo mostrado diretamente                  │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## 7. getDealWithCompleteInfo 🔍
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "query_visible",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "🔍",
-  "show_in_list": true,
-  "read_only": true,
-  "reason": "Consulta que usuário pode querer executar explicitamente"
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "getDealWithCompleteInfo",
-  "display_name": "Buscar deal com informações completas",
-  "description": "Busca um deal específico no Pipedrive com informações completas incluindo notas, atividades, histórico de mudanças e dados do responsável.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required"
-    },
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#deal_id**
-
-```json
-{
-  "name": "deal_id",
-  "display_name": "Deal",
-  "type": "number",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependency_config": {
-    "source_tool": "getAllExistingDealsFromPerson",
-    "source_field": "id",
-    "output_type": "array",
-    "selection_required": true,
-    "show_fields_preview": true,
-    "available_fields": [
-      { "name": "id", "type": "number" },
-      { "name": "title", "type": "string" },
-      { "name": "status", "type": "enum", "values": ["open", "won", "lost"] },
-      { "name": "value", "type": "number" }
-    ]
-  }
-}
-```
-
----
-
-## 8. getActivitiesFromDeal 🔍
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "query_visible",
-  "visible_in_checkpoint": true,
-  "user_configurable": true,
-  "icon": "🔍",
-  "show_in_list": true,
-  "read_only": true
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "getActivitiesFromDeal",
-  "display_name": "Buscar atividades de um deal",
-  "description": "Busca as atividades associadas a um deal específico no Pipedrive.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required"
-    },
-    {
-      "tool": "getAllExistingDealsFromPerson",
-      "type": "required"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#deal_id**
-
-```json
-{
-  "name": "deal_id",
-  "display_name": "Deal",
-  "type": "number",
-  "required": true,
-  "visible": true,
-  "show_by_default": true,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependency_config": {
-    "source_tool": "getAllExistingDealsFromPerson",
-    "source_field": "id",
-    "output_type": "array",
-    "selection_required": true,
-    "show_fields_preview": true,
-    "available_fields": [
-      { "name": "id", "type": "number" },
-      { "name": "title", "type": "string" },
-      { "name": "status", "type": "enum", "values": ["open", "won", "lost"] }
-    ]
-  }
-}
-```
-
----
-
-## 9. getAllExistingPipelines ⚙️
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "support_llm",
-  "visible_in_checkpoint": false,
-  "user_configurable": false,
-  "show_in_list": false,
-  "trigger": "runtime_for_llm_context",
-  "reason": "Tool de suporte - fornece contexto para LLM automaticamente"
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "getAllExistingPipelines",
-  "display_name": "Buscar todos os pipelines existentes",
-  "description": "Busca os pipelines existentes no Pipedrive com seus respectivos ids e stages. Tool de suporte para consultas genéricas (não usada atualmente no Pipedrive pois pipeline_id é tipo fixed).",
-  "integration": "pipedrive",
-  "dependencies": [],
-  "provides_context_for": [],
-  "note": "Exemplo genérico de tool de suporte. No Pipedrive, pipeline_id usa tipo fixed (carrega via API no frontend). Esta tool seria útil para parâmetros tipo LLM que precisem de contexto dinâmico de pipelines."
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#get**
-
-```json
-{
-  "name": "get",
-  "display_name": "Buscar",
-  "type": "boolean",
-  "required": true,
-  "visible": false,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "fixed_config": {
-    "hardcoded_value": true,
-    "reason": "Parâmetro técnico sem valor de configuração"
-  },
-  
-  "ui_indicators": {
-    "hidden": true,
-    "reason": "Regra 2B - Parâmetro técnico/sistema"
-  }
-}
-```
-
-**Como usuário vê:**
-
-```
-❌ NÃO APARECE NA UI DO CHECKPOINT
-
-Esta tool é exemplo genérico de tool de suporte LLM.
-
-No Pipedrive: pipeline_id é tipo FIXED (carrega lista
-via API no frontend), então esta tool não é invocada.
-
-Seria usada se houvesse parâmetro tipo LLM que precisasse
-de contexto dinâmico de pipelines.
-
-Exemplo hipotético (template_id tipo LLM):
-
-┌────────────────────────────────────────┐
-│ #template_id                           │
-│                                        │
-│ ℹ️ LLM terá acesso automático aos     │
-│    templates via                       │
-│    @searchEmailTemplates               │
-│                                        │
-│ Instrução para LLM:                    │
-│ ┌────────────────────────────────────┐ │
-│ │ Usar template com tag "boas-vindas"│ │
-│ └────────────────────────────────────┘ │
-└────────────────────────────────────────┘
-```
-
----
-
-## 10. getAllExistingDealsFromPerson ⚙️
-
-### **Categoria e Visibilidade**
-
-```json
-{
-  "category": "query_dependency",
-  "visible_in_checkpoint": false,
-  "user_configurable": false,
-  "show_in_list": false,
-  "trigger": "dependency_for_action_tool",
-  "reason": "Tool de dependência - invocada automaticamente"
-}
-```
-
-### **Metadados da Tool**
-
-```json
-{
-  "name": "getAllExistingDealsFromPerson",
-  "display_name": "Buscar todos os deals existentes de uma pessoa",
-  "description": "Busca os deals existentes no Pipedrive para uma pessoa específica. Invocada automaticamente quando tool de ação precisa de deal_id.",
-  "integration": "pipedrive",
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "type": "required"
-    }
-  ],
-  "invoked_by": [
-    {
-      "tool": "updateDeal",
-      "parameter": "deal_id"
-    },
-    {
-      "tool": "createNote",
-      "parameter": "deal_id"
-    },
-    {
-      "tool": "updateNote",
-      "parameter": "deal_id"
-    },
-    {
-      "tool": "createDealActivity",
-      "parameter": "deal_id"
-    },
-    {
-      "tool": "getDealWithCompleteInfo",
-      "parameter": "deal_id"
-    },
-    {
-      "tool": "getActivitiesFromDeal",
-      "parameter": "deal_id"
-    }
-  ]
-}
-```
-
-### **Schema de Parâmetros**
-
-#### **#person_id**
-
-```json
-{
-  "name": "person_id",
-  "display_name": "Pessoa",
-  "type": "number",
-  "required": true,
-  "visible": false,
-  "show_by_default": false,
-  "is_critical_field": true,
-  
-  "allowed_input_types": ["dependency"],
-  "default_type": "dependency",
-  
-  "dependencies": [
-    {
-      "tool": "getOrCreatePerson",
-      "field": "id",
-      "type": "required",
-      "auto_resolve": true
-    }
-  ],
-  
-  "ui_indicators": {
-    "hidden": true,
-    "reason": "Resolvido automaticamente - não aparece na UI"
-  }
-}
-```
-
----
-
-#### **#pipeline_id**
-
-```json
-{
-  "name": "pipeline_id",
-  "display_name": "Filtrar por pipeline",
-  "type": "number",
-  "required": false,
-  "visible": false,
-  "show_by_default": false,
-  "is_critical_field": false,
-  
-  "allowed_input_types": ["fixed"],
-  "default_type": "fixed",
-  
-  "ui_indicators": {
-    "hidden": true,
-    "reason": "Filtro opcional - não exposto ao usuário"
-  },
-  
-  "nullable_behavior": {
-    "empty_converts_to": null,
-    "send_when_null": false
-  }
-}
-```
-
-**Como usuário vê:**
-
-```
-❌ NÃO APARECE NA UI DO CHECKPOINT
-
-Esta tool é invocada automaticamente quando:
-- Usuário configura @updateDeal, @createNote, etc.
-- Parâmetro deal_id precisa ser resolvido
-
-Exemplo: Usuário configura apenas @updateDeal
-
-┌────────────────────────────────────────────────────┐
-│ @updateDeal                                        │
-│                                                    │
-│ #deal_id *                                         │
-│                                                    │
-│ 🔗 Fonte: Consultar deals da pessoa               │
-│                                                    │
-│ Critério para seleção:                            │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ Deal com status open e valor > 1000            │ │
-│ └────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────┘
+## 👁️ **Regra 1: Visibilidade de Tools no Checkpoint**
+
+Define quais tools aparecem na lista `@` para o usuário configurar explicitamente.
+
+### **Critérios para OCULTAR tool da lista @:**
+
+**A. Tools de Consulta/Leitura Automáticas (Padrão GET)**
+- ✅ Tools que começam com `get` ou `getAll`
+- ✅ Apenas leem dados, não modificam
+- ✅ São invocadas automaticamente como dependências ou suporte
+
+**Exemplos que NÃO aparecem:**
+- `@getAllExistingDealsFromPerson` → invocada automaticamente quando @updateDeal precisa de deal_id
+- `@getAllExistingPipelines` → invocada automaticamente para contexto LLM
+
+**Como funciona a invocação automática:**
+
+```
+Usuário configura apenas @updateDeal:
+
+┌────────────────────────────────┐
+│ @updateDeal                    │
+│                                │
+│ #deal_id - tipo: Dependência   │
+│                                │
+│ Fonte: Consultar deals         │
+│ ┌────────────────────────────┐ │
+│ │ Critério para seleção:     │ │
+│ │ ┌────────────────────────┐ │ │
+│ │ │ Deal com status open   │ │ │
+│ │ │ e valor > 1000         │ │ │
+│ │ └────────────────────────┘ │ │
+│ └────────────────────────────┘ │
+└────────────────────────────────┘
 
 Em runtime:
 1. Sistema invoca @getAllExistingDealsFromPerson
@@ -2538,268 +545,370 @@ Em runtime:
 
 ✅ Usuário não viu @getAllExistingDealsFromPerson
 ✅ Invocação foi automática
+✅ Configuração de seleção fica onde faz sentido
+```
+
+**B. Tools de Suporte para LLM**
+- ✅ Fornecem contexto para LLM em runtime
+- ✅ Chamadas automaticamente quando parâmetro tipo=LLM
+- ✅ Exemplo: `@getAllExistingPipelines` para popular contexto
+
+### **Critérios para MOSTRAR tool na lista @:**
+
+**A. Tools de Ação/Modificação**
+- ✅ Criam, atualizam ou deletam dados
+- ✅ Verbos: `create`, `update`, `delete`, `add`, `remove`
+- ✅ Usuário DEVE configurar explicitamente
+
+**Exemplos:**
+- `@createDeal` → aparece
+- `@updateDeal` → aparece
+- `@createNote` → aparece
+- `@createDealActivity` → aparece
+
+**B. Tools Híbridas (GET com Efeito Colateral)**
+- ✅ Começam com `get` MAS podem modificar dados
+- ✅ Exemplo: `@getOrCreatePerson` → cria se não existir
+- ✅ Usuário DEVE configurar porque tem impacto
+
+**C. Tools de Consulta Visíveis (EXCEÇÃO ao padrão GET)**
+- ✅ Começam com `get` MAS usuário pode querer executar explicitamente
+- ✅ Úteis para obter contexto ou informações detalhadas
+- ✅ Exemplo: `@getDealWithCompleteInfo`, `@getActivitiesFromDeal`
+- ✅ Aparecem com ícone 🔍 para diferenciá-las de ações
+
+### **Padrão de Naming como Indicador:**
+
+| Prefixo | Visível? | Categoria | Invocação |
+|---------|----------|-----------|-----------|
+| `get`, `getAll` | ❌ NÃO* | Consulta Auto | Por dependência |
+| `get*` (exceção) | ✅ SIM | Consulta Visível 🔍 | Explícita (opcional) |
+| `create`, `add` | ✅ SIM | Ação | Explícita |
+| `update`, `edit` | ✅ SIM | Ação | Explícita |
+| `delete`, `remove` | ✅ SIM | Ação | Explícita |
+| `getOrCreate` | ✅ SIM | Híbrida | Explícita |
+
+\* Exceção: Tools de consulta que o usuário pode querer executar explicitamente aparecem como "Consulta Visível"
+
+### **Exceções ao Padrão GET:**
+
+```
+SE tool começa com "get" E:
+  → Cria recursos (getOrCreate) → MOSTRAR
+  → Tem side effects → MOSTRAR
+  → Modifica estado → MOSTRAR
+
+SENÃO:
+  → OCULTAR e invocar automaticamente
+```
+
+### **Schema da Tool:**
+
+```json
+{
+  "tool": "@getAllExistingDealsFromPerson",
+  "naming_pattern": "getAll",
+  "category": "query_auto",
+  "visible_in_checkpoint": false,
+  "auto_invoke": true,
+  "invoked_by": [
+    {
+      "tool": "@updateDeal",
+      "parameter": "deal_id",
+      "when": "type=dependency"
+    }
+  ]
+}
 ```
 
 ---
 
-## 📊 **Resumo de Categorias**
+## 📐 **Regra 2: Visibilidade do Parâmetro**
 
-### **Tools Visíveis (7 tools)**
+Define se um parâmetro deve ser configurável pelo usuário ou resolvido automaticamente pelo sistema.
 
-| Tool | Categoria | Ícone | Dependências |
-|------|-----------|-------|--------------|
-| **createDeal** | Ação | 💼 | getOrCreatePerson |
-| **updateDeal** | Ação | ✏️ | getOrCreatePerson, getAllExistingDealsFromPerson |
-| **createNote** | Ação | 📝 | getOrCreatePerson, getAllExistingDealsFromPerson |
-| **updateNote** | Ação | ✏️📝 | getOrCreatePerson, getAllExistingDealsFromPerson, getDealWithCompleteInfo |
-| **createDealActivity** | Ação | 📅 | getOrCreatePerson, getAllExistingDealsFromPerson |
-| **getOrCreatePerson** | Híbrida | 👤 | (nenhuma) |
-| **getDealWithCompleteInfo** | Consulta | 🔍 | getOrCreatePerson, getAllExistingDealsFromPerson |
-| **getActivitiesFromDeal** | Consulta | 🔍 | getOrCreatePerson, getAllExistingDealsFromPerson |
+### Critérios para Ocultar (Resolver Automaticamente):
+- **Dependência com Valor Único:** Ocultar o parâmetro se seu valor vem de uma tool que retorna **um único resultado**. Não há decisão para o usuário tomar.
+  - **Exemplo:** `person_id` em `@createDeal` vem de `@getOrCreatePerson`, que retorna apenas uma pessoa. O sistema usa o ID automaticamente.
+- **Parâmetros Técnicos:** Ocultar campos internos do sistema que não têm valor de configuração para o usuário (ex: flags booleanas fixas).
 
-### **Tools Automáticas (2 tools)**
-
-| Tool | Categoria | Invocação |
-|------|-----------|-----------|
-| **getAllExistingPipelines** | Suporte LLM | Quando pipeline_id tipo=LLM |
-| **getAllExistingDealsFromPerson** | Dependência | Quando deal_id necessário |
+### Critérios para Mostrar (Requer Configuração):
+- **Dependência com Array de Valores:** Mostrar o parâmetro se a tool de origem retorna **múltiplos resultados**. O usuário precisa definir um critério para selecionar o item correto.
+  - **Exemplo:** `deal_id` em `@updateDeal` vem de `@getAllExistingDealsFromPerson`, que retorna uma lista de deals. O usuário deve especificar qual deal atualizar (ex: "o mais recente com status 'open'").
+- **Decisão de Negócio:** Sempre mostrar campos que exigem uma decisão estratégica ou de negócio do usuário (ex: `pipeline_id`, `stage_id`, `currency`).
+- **Conteúdo Customizável:** Sempre mostrar campos de texto livre que a LLM irá gerar (ex: `title`, `content`, `description`).
 
 ---
 
-## 🎯 **Padrões Identificados**
+## 🎚️ **Regra 3: Tipos de Preenchimento Permitidos**
 
-### **Parâmetros Críticos 🔴**
+> **Simplificação v3.8:** Cada parâmetro agora possui apenas **um** `input_type` (`fixed`, `llm`, ou `dependency`), eliminando a complexidade de permitir múltiplos tipos.
 
-- **phone** (getOrCreatePerson) - chave de busca, normalização automática
-- **deal_id** (updateDeal, createNote, etc.) - identificação de recurso
-- **note_id** (updateNote) - identificação de recurso
+A escolha do tipo de input depende de como a API externa valida o dado e se o valor é estático ou dinâmico.
 
-### **Dependências Comuns**
+### **Matriz de Decisão Rápida:**
+
+| Tipo de Dado | API Valida? | Tipo de Input | Justificativa |
+|---|---|---|---|
+| **ID de recurso pré-existente** (ex: `pipeline_id`, `user_id`) | ✅ Sim (só aceita IDs válidos) | `fixed` | A LLM não pode "inventar" um ID. O valor deve ser selecionado de uma lista carregada da API. |
+| **ID de dependência** (ex: `deal_id` de `getAllDeals`) | ✅ Sim (resolvido por outra tool) | `dependency` | O valor é o resultado de outra tool. O sistema resolve a dependência automaticamente. |
+| **Enum validado pela API** (ex: `status`, `currency`) | ✅ Sim (rejeita valores inválidos) | `fixed` | A API só aceita valores de uma lista restrita. A seleção deve ser exata. |
+| **Texto/String livre** (ex: `title`, `note`, `lost_reason`) | ❌ Não (aceita qualquer string) | `llm` | O conteúdo é dinâmico e gerado/extraído do contexto da conversa pela LLM. |
+| **Data/Hora/Valor contextual** (ex: `due_date`, `value`) | ❌ Não (valida formato, não valor) | `llm` | Quase sempre extraído dinamicamente da conversa (ex: "marcar para amanhã", "valor de R$5000"). |
+| **Valores com presets fixos** (ex: `duration`) | ❌ Não (valida formato) | `fixed` | A empresa geralmente tem durações padrão (30min, 1h). Uma lista fixa é mais prática. |
+| **Booleano** (ex: `done: true`) | ✅ Sim | `fixed` | Uma simples seleção entre `true` e `false`. |
+
+---
+
+### **Regras Específicas por Tipo:**
+
+#### **A. Tipo `fixed`**
+
+Usado quando os valores permitidos vêm de uma **lista finita e conhecida**, seja de uma API ou de regras de negócio.
+
+- **Como funciona:** O usuário seleciona um ou mais valores permitidos durante a configuração. Em tempo de execução, a LLM escolhe **entre as opções pré-selecionadas** com base na instrução fornecida.
+- **Exemplos:** `pipeline_id`, `stage_id`, `user_id`, `status`, `currency`, `duration`.
+- **Multi-Select:** Se múltiplos valores são permitidos (ex: "usar pipeline A ou B"), é **obrigatório** fornecer uma instrução clara de quando usar cada um.
+
+#### **B. Tipo `llm`**
+
+Usado para **qualquer valor que precise ser extraído ou gerado dinamicamente** a partir do contexto da conversa.
+
+- **Como funciona:** O usuário fornece uma instrução para a LLM (ex: "Extrair o e-mail do cliente da conversa"). O sistema pode, opcionalmente, usar uma `support_tool` para buscar dados que ajudem a LLM a tomar uma decisão (ex: buscar templates de e-mail).
+- **Exemplos:** `title`, `description`, `note`, `fullname`, `email`, `phone`, `value`, `due_date`.
+- **Preview de Campos:** Se uma `support_tool` é usada, a UI mostra os campos que a tool retorna (ex: `id`, `name`, `subject` de um template de e-mail) para ajudar o usuário a escrever uma instrução mais precisa.
+
+#### **C. Tipo `dependency`**
+
+Usado quando o valor de um parâmetro é o **resultado direto de outra tool**.
+
+- **Como funciona:** O sistema invoca a tool de origem automaticamente.
+  - Se a tool retorna um **valor único** (ex: `person_id` de `@getOrCreatePerson`), o parâmetro é **oculto** do usuário e o valor é usado diretamente.
+  - Se a tool retorna um **array de valores** (ex: múltiplos deals de `@getAllExistingDealsFromPerson`), o parâmetro é **visível**, e o usuário deve fornecer um critério em linguagem natural para que a LLM selecione o item correto do array (ex: "Deal com status 'open' e valor maior que 1000").
+- **Preview de Campos:** Para dependências de array, a UI sempre mostra os campos disponíveis do objeto retornado para ajudar a escrever o critério de seleção.
+
+---
+
+## 🔢 **Regra 4: Multi-Select**
+
+Aplica-se apenas a parâmetros do tipo `fixed`.
+
+**REGRA CRÍTICA:** Se o usuário selecionar múltiplos valores permitidos, um campo de **instrução se torna obrigatório**.
+
+- **Exemplo:** Para `pipeline_id`, se o usuário selecionar "Pipeline Vendas" e "Pipeline VIP", ele **deve** preencher o campo de instrução, explicando quando a LLM deve escolher cada um (ex: "Se o cliente mencionar 'premium' ou 'vip', usar Pipeline VIP. Caso contrário, usar Pipeline Vendas.").
+- **Validação:** A UI deve impedir que a configuração seja salva se múltiplos valores forem selecionados sem uma instrução.
+
+---
+
+## 🧩 **Regra 5: Dependências e Relacionamentos**
+
+Define como os parâmetros se relacionam com outras tools ou com outros parâmetros.
+
+### Tipos de Dependência:
+
+1.  **Dependência entre Tools:** Uma tool de ação (ex: `@createDeal`) pode depender de uma tool de consulta (ex: `@getOrCreatePerson`) para obter um valor. A UI deve indicar essa dependência e validar se a tool necessária está ativa.
+
+2.  **Relacionamento entre Parâmetros:** O valor ou a visibilidade de um parâmetro pode depender de outro na mesma tool. A UI deve ser dinâmica.
+    -   **Exemplo:** O campo `stage_id` só deve ser habilitado e carregar suas opções *após* um `pipeline_id` ter sido selecionado.
+
+### Preview de Campos: Ajudando o Usuário
+
+**REGRA CRÍTICA DE UX:** Para que o usuário possa escrever instruções de critério eficazes, ele precisa saber quais dados estão disponíveis.
+
+O sistema deve mostrar um **preview dos campos retornados** pela tool de suporte sempre que:
+-   O `input_type` for `dependency` e a `source_tool` retornar um array.
+-   O `input_type` for `llm` e o parâmetro tiver uma `support_tool` associada.
+
+**Exemplo de UI para uma dependência de array:**
+```
+🔗 Depende de: @getAllExistingDealsFromPerson
+⚠️ Esta tool retorna múltiplos deals. Defina um critério para a seleção.
+
+ℹ️ Campos disponíveis do Deal:
+  • id (number)
+  • title (string)
+  • status (string): open, won, lost
+  • value (number)
+  • created_at (datetime)
+
+Critério para seleção:
+┌──────────────────────────────────┐
+│ Deal com status "open" e valor   │
+│ maior que 1000                   │
+└──────────────────────────────────┘
+```
+Isso capacita o usuário a escrever critérios precisos (ex: `status = "open" AND value > 1000`) porque ele vê a estrutura de dados real.
+
+---
+
+## 🔐 **Regra 6: Obrigatoriedade**
+
+### **Parâmetro Obrigatório:**
 
 ```
-Fluxo típico:
-
-1. @getOrCreatePerson (sempre primeiro)
-   └─ Retorna: person_id (valor único)
-
-2. @getAllExistingDealsFromPerson (auto-invocada)
-   └─ Usa: person_id
-   └─ Retorna: [deals] (array)
-
-3. @updateDeal / @createNote / etc. (configurada pelo usuário)
-   └─ Usa: person_id (oculto, resolvido automaticamente)
-   └─ Usa: deal_id (visível, requer critério de seleção)
+SE parâmetro é required=true na API:
+  → Marcar com asterisco (*) ou indicador visual
+  → Validar antes de salvar
+  → Se tipo="LLM" → garantir que descrição não está vazia
+  → Se tipo="Fixo" → garantir que valor foi selecionado
+  → Se tipo="Dependência" → garantir que tool fonte está ativa
 ```
 
-### **Parâmetros Relacionados**
+### **Parâmetro Opcional:**
 
 ```
-pipeline_id → stage_id (contextual)
-  → stage_id desabilitado até pipeline_id ser selecionado
-  → stage_id carrega opções baseado no pipeline selecionado
-
-status = 'lost' → lost_reason (condicional)
-  → lost_reason aparece apenas quando status é 'lost'
-  → lost_reason torna-se obrigatório quando visível
+SE parâmetro é optional:
+  → Permitir deixar em branco
+  → Adicionar toggle "Incluir este parâmetro?"
+  → Se desativado → não enviar para API
 ```
 
----
-
-## 🔗 **Mapa de Dependências**
+**Otimização UX:**
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ LAYER 1: Base                                       │
-├─────────────────────────────────────────────────────┤
-│ 👤 getOrCreatePerson (híbrida - visível)            │
-│    └─ Retorna: person_id (valor único)              │
-└─────────────────────────────────────────────────────┘
-                          │
-            ┌─────────────┴─────────────┐
-            │                           │
-            v                           v
-┌─────────────────────────┐  ┌─────────────────────────┐
-│ LAYER 2: Consultas      │  │ LAYER 2: Suporte        │
-├─────────────────────────┤  ├─────────────────────────┤
-│ ⚙️ getAllExistingDeals  │  │ ⚙️ getAllExistingPipe   │
-│    FromPerson           │  │    lines (suporte LLM)  │
-│    (dependência)        │  │                         │
-│    └─ array de deals    │  │    └─ contexto LLM     │
-└─────────────────────────┘  └─────────────────────────┘
-            │
-            ├────────────┬────────────┬────────────┐
-            │            │            │            │
-            v            v            v            v
-┌───────────────┐ ┌───────────┐ ┌───────────┐ ┌──────────┐
-│ LAYER 3: Ações│ │           │ │           │ │          │
-├───────────────┤ ├───────────┤ ├───────────┤ ├──────────┤
-│ 💼 createDeal │ │ ✏️ update │ │ 📝 create │ │ 📅 create│
-│               │ │    Deal   │ │    Note   │ │ Activity │
-└───────────────┘ └─────┬─────┘ └───────────┘ └──────────┘
-                        │
-                        v
-                  ┌──────────────┐
-                  │ 🔍 getDeal   │
-                  │ WithComplete │
-                  │ Info         │
-                  └──────┬───────┘
-                         │
-                         v
-                  ┌──────────────┐
-                  │ ✏️📝 update  │
-                  │    Note      │
-                  └──────────────┘
+Parâmetros opcionais podem iniciar colapsados:
+  → Mostrar apenas obrigatórios por padrão
+  → Botão "Mostrar parâmetros avançados [+]"
 ```
 
 ---
 
-**Versão:** 2.3.1  
-**Data:** 2025-11-10  
-**Framework:** v3.7.1  
-**Integração:** Pipedrive  
-**Status:** Completo e pronto para implementação
+## 📋 **Regra 7: Instruções Gerais vs Instruções por Parâmetro**
+
+### **A. Separação de Responsabilidades (CRÍTICO):**
+
+**🚫 Usuário NÃO configura lógica técnica:**
+```
+❌ Errado: "Converter telefone para formato internacional (+5511987654321)"
+✅ Correto: "Extrair telefone da conversa"
+```
+
+-   **Responsabilidade do Sistema:** Normalização, validação e conversão de formatos de dados.
+-   **Responsabilidade do Usuário:** Definir a lógica de negócio (ex: "onde" encontrar o dado, "quando" usar um valor vs. outro).
+
+### **B. Instruções Gerais (da tool):**
+
+-   **Localização:** Final do modal da tool.
+-   **Finalidade:** Fornecer um contexto geral para a execução da tool.
+-   **Exemplo:** "Cliente é VIP, usar pipeline premium" ou "Criar apenas se valor > R$1000".
+
+### **C. Instruções por Parâmetro:**
+
+-   **Localização:** Dentro de cada parâmetro.
+-   **Finalidade:** Instruir especificamente como preencher aquele campo.
+-   **Exemplo:** "Extrair telefone da conversa" ou "Usar data mencionada pelo cliente".
 
 ---
 
-## 📝 Changelog
+## 🌐 **Regra 8: Metadata de Parâmetros (Schema Universal)**
 
-### **v2.3.1** - 2025-11-10 - Correções de Inconsistências
+Para aplicar essas regras a **qualquer integração**, cada parâmetro deve ter um schema JSON bem definido, conforme detalhado no glossário abaixo. Este schema é a "fonte da verdade" que dita todo o comportamento da UI e do sistema.
 
-**Mudanças:**
-- ✅ Corrigido `person_id` em `getAllExistingDealsFromPerson`: `show_by_default: true` → `false`
-- ✅ Adicionada nota explicativa em `ui_indicators.reason` para parâmetros ocultos
-- ✅ Atualizado `getAllExistingPipelines`:
-  - Removida referência incorreta a `pipeline_id` tipo LLM
-  - Adicionada nota que esta tool não é usada no Pipedrive (pipeline_id é tipo fixed)
-  - Exemplo visual atualizado com caso hipotético (`template_id`)
-- ✅ Documentada notação `notes[].id` em `updateNote.note_id`
-- ✅ Nota sobre múltiplos tipos atualizada (removidos em v3.5)
+### **📖 Glossário de Campos do Schema (ATUALIZADO v3.8.0)**
 
-**Impacto:** Schema agora está 100% consistente com Framework v3.7.1
+> **⚠️ ATENÇÃO:** Este glossário reflete a simplificação radical do schema v3.8.0.
+> - `input_type` é agora um campo único.
+> - `config` é um objeto unificado.
+> - A configuração de `dependency` foi drasticamente reduzida.
 
----
+| Campo | Tipo | Descrição |
+|---|---|---|
+| **`name`** | string | Nome técnico do parâmetro (ex: `pipeline_id`). |
+| **`display_name`** | string | Nome amigável mostrado na UI (ex: "Pipeline"). |
+| **`help_text`** | string | Texto auxiliar na UI (ex: "Selecione o(s) pipeline(s)"). |
+| **`type`** | string | Tipo de dado da API (`string`, `number`, `boolean`, `array`). |
+| **`required`** | boolean | Se é obrigatório pela API externa. |
+| **`visible`** | boolean | Se PODE aparecer na UI (se `false`, nunca aparece). |
+| **`show_by_default`** | boolean | Se aparece de cara ou no botão "Adicionar". |
+| **`is_critical_field`**| boolean | Se precisa de normalização automática (ex: `email`, `phone`). |
+| **`input_type`** | string | Tipo de preenchimento: `fixed`, `llm`, ou `dependency`. |
+| **`config`** | object | Objeto de configuração que varia conforme `input_type`. |
 
-### **v2.3** - 2025-11-10 - Reformulação de Criticidade → Visibilidade Padrão + Padronização
-
-**Mudanças Principais:**
-- ❌ Removido campo `criticality` (critical/important/complementary) de todos os parâmetros
-- ✅ Adicionado campo `show_by_default` (boolean) - controla se aparece de cara ou no botão "Adicionar"
-- ✅ Mantido campo `visible` (boolean) - controla se PODE aparecer
-- ✅ Novo campo `is_critical_field` (boolean) - apenas para normalização automática
-- ✅ Adicionado campo `help_text` nos parâmetros principais
-
-**Padronização de Schemas:**
-- ✅ **Ordem padronizada** de todos os campos seguindo o glossário
-- ✅ **Ordem correta:** `visible` → `show_by_default` → `is_critical_field` → `allowed_input_types` → `default_type`
-- ✅ **Correção:** `help_text` movido de `ui_indicators` para nível raiz
-- ✅ **Correção:** `ui_indicators.help_text` renomeado para `ui_indicators.warning`
-- ✅ **Aplicado em:** Todos os 10 tools e 50+ parâmetros
-
-**Parâmetros Atualizados:**
-
-**createDeal:**
-- `title`: + `help_text: "Crie um título descritivo"`, `show_by_default: true`, `is_critical_field: false`
-- `pipeline_id`: + `help_text: "Selecione o(s) pipeline(s)"`, `show_by_default: true`, `is_critical_field: false`
-- `person_id`: `show_by_default: false` (não importa, visible=false), `is_critical_field: true`
-- `probability`: + `help_text: "Estimativa de fechamento (0-100%)"`, `show_by_default: false`, `is_critical_field: false`
-
-**Atualização em massa:**
-- critical → `show_by_default: true`, `is_critical_field: true`
-- important → `show_by_default: true`, `is_critical_field: false`
-- complementary → `show_by_default: false`, `is_critical_field: false`
-
-**Exemplos Visuais:** Atualizados para mostrar `help_text` ao lado do `display_name`
-
-**Referência:** Framework v3.7 - Regras 10 e 11
+*(Para detalhes completos sobre o objeto `config`, relacionamentos, validações e outros campos do schema, consulte a implementação de referência).*
 
 ---
 
-### **v2.2** - 2025-11-10 - Remoção de Enum Values para Tipo LLM
+# ⚙️ **REGRAS DE SCHEMA/SISTEMA**
 
-**Mudança:**
-- ❌ Removido campo `enum_values` de `llm_config`
-- ✅ Parâmetros do tipo LLM agora têm liberdade total para gerar valores baseado em contexto
-
-**Parâmetro Atualizado:**
-- **`title`** em `createDeal`: Removido `enum_values: []` do `llm_config`
-
-**Impacto:**
-- ✅ LLM tem mais flexibilidade para criar títulos contextuais
-- ✅ Redução de complexidade no schema
-- ✅ Alinhado com Framework v3.6
-
-**Justificativa:**  
-Se há necessidade de restringir valores, usar tipo `["fixed"]` com `enum_values` ao invés de tentar limitar a LLM.
-
-**Referência:** Framework v3.6 - "Remoção de Enum Values para Tipo LLM"
+> **As regras abaixo (9-12) são para definição do SCHEMA da tool pelo desenvolvedor.**
+> O usuário final NÃO configura essas regras - elas são aplicadas automaticamente.
 
 ---
 
-### **v2.1** - 2025-11-10 - Simplificação de Tipos + Parâmetros Adicionais
+## 🎯 **Regra 9: Visibilidade Padrão dos Parâmetros**
 
-**Mudanças Críticas:**
-- ❌ Removidos múltiplos tipos `["llm", "fixed"]` de 7 parâmetros
-- ✅ Cada parâmetro agora tem apenas UM tipo baseado no caso de uso real (90%+)
-- ✅ **Adicionados 4 parâmetros opcionais importantes ao createDeal**
+Controla quais parâmetros aparecem imediatamente e quais ficam em um menu de "parâmetros opcionais".
 
-**Parâmetros Adicionados ao createDeal:**
-
-1. **`user_id`** - Responsável/Owner (opcional)
-   - Tipo: Fixo (lista de usuários)
-   - Se não definir, usa usuário que criou ou padrão da conta
-   - Permite criar deal já atribuído ao responsável correto
-   
-2. **`value`** - Valor monetário (opcional)
-   - Tipo: LLM
-   - Se não definir, deal fica sem valor
-   - Evita precisar fazer update depois para adicionar valor
-   
-3. **`status`** - Status do deal (opcional)
-   - Tipo: Fixo (enum: open, won, lost)
-   - Se não definir, usa "open" por padrão
-   - Permite criar deal já em status específico
-   
-4. **`probability`** - Probabilidade de fechamento (opcional)
-   - Tipo: LLM (0-100%)
-   - Se não definir, usa probabilidade padrão do estágio
-   - Facilita estimativa desde o início
-
-**Benefício:** Permite criar deals mais completos em 1 chamada de API ao invés de precisar fazer update depois.
+-   **`visible: false`**: O parâmetro **nunca** aparece na UI. Usado para dependências de valor único resolvidas automaticamente.
+-   **`visible: true` + `show_by_default: false`**: O parâmetro está disponível, mas fica oculto por padrão no menu "Adicionar parâmetros opcionais". Ideal para campos avançados ou raramente usados (`probability`, `currency`).
+-   **`visible: true` + `show_by_default: true`**: O parâmetro aparece por padrão na UI. Ideal para campos importantes, mesmo que opcionais (`pipeline_id`, `stage_id`).
+-   **`required: true`**: O parâmetro **sempre** aparece e é obrigatório, ignorando as flags acima.
 
 ---
 
-**Parâmetros Atualizados (Simplificação de Tipos):**
+## 🔴 **Regra 10: Campos Críticos**
 
-**updateDeal:**
-1. `value` - `["llm", "fixed"]` → `["llm"]`
-   - Raramente fixo, varia por produto mencionado na conversa
-2. `expected_close_date` - `["llm", "fixed"]` → `["llm"]`
-   - Raramente fixo, varia por disponibilidade do cliente
-3. `probability` - `["llm", "fixed"]` → `["llm"]`
-   - Raramente fixo, varia por engajamento do cliente
+A flag `is_critical_field: true` identifica campos que são chaves de busca ou identificadores importantes, acionando comportamentos especiais no sistema.
 
-**createDealActivity:**
-4. `due_date` - `["llm", "fixed"]` → `["llm"]`
-   - Raramente fixo, varia por disponibilidade do cliente
-5. `due_time` - `["llm", "fixed"]` → `["llm"]`
-   - Raramente fixo, varia por disponibilidade do cliente
-6. `duration` - `["llm", "fixed"]` → `["fixed"]` ⚠️
-   - Empresa tem presets padrão (30min, 1h, 1h30, 2h)
-   - LLM não agrega valor (sem contexto suficiente)
-7. `attendees` - `["llm", "fixed"]` → `["llm"]`
-   - Raramente fixo, varia por quem foi mencionado na conversa
+-   **TIPO 1: Chaves de Busca (com normalização):**
+    -   **O que são:** Campos usados para encontrar registros existentes, onde o formato incorreto pode causar duplicatas (ex: `phone`, `email`).
+    -   **Ação do Sistema:** Aplica regras de normalização automática (ex: formata `phone` para o padrão E.164, converte `email` para minúsculas).
 
-**Impacto UX:**
-- ✅ Seletor de tipo removido (interface mais limpa)
-- ✅ Campos mostrados diretamente
-- ✅ Menos decisões para o usuário
-- ✅ Alinhado com Framework v3.5
-
-**Referência:** Regra 3E do Framework - "Quando NÃO Permitir Múltiplos Tipos"
+-   **TIPO 2: Identificadores de Operações (sem normalização):**
+    -   **O que são:** IDs usados para identificar um recurso em uma operação de atualização ou exclusão (ex: `deal_id` em `updateDeal`).
+    -   **Ação do Sistema:** A UI exibe um aviso extra para o usuário confirmar que o critério de seleção está correto, prevenindo modificações no recurso errado.
 
 ---
 
-### **v2.0** - 2025-11-07 - Versão Inicial
-- Schema completo de 10 tools do Pipedrive
-- Baseado no Framework v3.4
+## 📭 **Regra 11: Null e Empty Handling**
 
+Define como o sistema deve tratar valores vazios ou nulos para parâmetros opcionais, garantindo que apenas dados válidos sejam enviados para a API.
+
+-   **Strings:** `""` ou `"   "` são convertidos para `null` e, por padrão, o parâmetro não é enviado.
+-   **Numbers:** `0` é considerado um valor válido e é enviado. `null` ou `undefined` não são enviados.
+-   **Booleans:** `false` é um valor válido e é enviado. `null` ou `undefined` não são enviados.
+-   **Arrays:** `[]` (array vazio) não é enviado.
+
+O comportamento detalhado pode ser ajustado no schema através da propriedade `nullable_behavior`.
+
+---
+
+## 🏷️ **Regra 12: Categorias de Tools (Integração com Regra 1)**
+
+Esta regra expande a Regra 1, detalhando as categorias que definem a visibilidade e o comportamento de uma tool.
+
+| Categoria | Visível na Lista @? | Descrição |
+|---|---|---|
+| **Ação** | ✅ **SIM** | Executa operações de escrita (`create`, `update`, `delete`). O usuário deve configurar explicitamente. |
+| **Híbrida** | ✅ **SIM** | Busca um recurso e o cria se não existir (`getOrCreate`). Requer configuração do usuário. |
+| **Consulta Visível** | ✅ **SIM** (com 🔍) | Tool de leitura (`get`) que o usuário pode querer executar manualmente para consulta. |
+| **Consulta de Dependência**| ❌ **NÃO** | Busca dados que são pré-requisito para outra tool. Invocada automaticamente. |
+| **Suporte LLM** | ❌ **NÃO** | Fornece contexto para um parâmetro do tipo `llm`. Invocada automaticamente. |
+
+---
+
+## 📊 **Índice de Regras**
+
+### 🎨 **Regras de UX/Configuração (Usuário)**
+
+1.  **Visibilidade de Tools** - Quais tools aparecem na lista @.
+2.  **Visibilidade do Parâmetro** - Quando mostrar ou ocultar um parâmetro.
+3.  **Tipos de Preenchimento** - `fixed`, `llm` ou `dependency`.
+4.  **Multi-Select** - Como lidar com múltiplos valores fixos.
+5.  **Dependências e Relacionamentos** - Relações entre tools e parâmetros.
+6.  **Obrigatoriedade** - Tratamento de campos `required`/`optional`.
+7.  **Instruções** - Diferença entre instrução geral e por parâmetro.
+8.  **Metadata Schema** - A estrutura JSON que define um parâmetro.
+
+### ⚙️ **Regras de Schema/Sistema (Desenvolvedor)**
+
+9.  **Visibilidade Padrão** - `show_by_default` para uma UI mais limpa.
+10. **Campos Críticos** - Normalização automática com `is_critical_field`.
+11. **Null e Empty Handling** - Como tratar valores nulos ou vazios.
+12. **Categorias de Tools** - Classificação de tools para controlar o comportamento.
+
+---
+
+**Versão:** 3.8.0  
+**Data:** 2025-11-13  
+**Status:** Pronto para implementação
